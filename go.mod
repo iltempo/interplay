@@ -1,4 +1,4 @@
-module iltempo.de/midi-ai
+module github.com/iltempo/interplay
 
 go 1.25.4
 

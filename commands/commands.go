@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	"iltempo.de/midi-ai/sequence"
+	"github.com/iltempo/interplay/sequence"
 )
 
 // VerboseController allows controlling verbose output

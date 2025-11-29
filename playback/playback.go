@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"iltempo.de/midi-ai/midi"
-	"iltempo.de/midi-ai/sequence"
+	"github.com/iltempo/interplay/midi"
+	"github.com/iltempo/interplay/sequence"
 )
 
 // Engine manages the playback loop

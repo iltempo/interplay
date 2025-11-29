@@ -9,7 +9,7 @@ This is a Go-based project for creating and improvising music with MIDI using AI
 ## Technology Stack
 
 - **Language**: Go 1.25.4
-- **Module**: `iltempo.de/midi-ai`
+- **Module**: `github.com/iltempo/interplay`
 
 ## Development Commands
 

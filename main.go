@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"os"
 
-	"iltempo.de/midi-ai/commands"
-	"iltempo.de/midi-ai/midi"
-	"iltempo.de/midi-ai/playback"
-	"iltempo.de/midi-ai/sequence"
+	"github.com/iltempo/interplay/commands"
+	"github.com/iltempo/interplay/midi"
+	"github.com/iltempo/interplay/playback"
+	"github.com/iltempo/interplay/sequence"
 )
 
 func main() {
