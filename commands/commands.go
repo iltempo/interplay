@@ -80,7 +80,7 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 	case "delete":
 		return h.handleDelete(parts)
 	case "ai":
-		return h.handleAI(cmdLine)
+		return h.handleAI(parts)
 	case "ask":
 		return h.handleAsk(cmdLine)
 	case "clear-chat":
@@ -362,46 +362,102 @@ func (h *Handler) handleDelete(parts []string) error {
 	return nil
 }
 
-// handleAI: ai <request>
-func (h *Handler) handleAI(cmdLine string) error {
+// handleAI: ai - enter interactive AI session
+func (h *Handler) handleAI(parts []string) error {
 	// Check if AI client is available
 	if h.aiClient == nil {
 		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
 	}
 
-	// Extract the request (everything after "ai ")
-	request := strings.TrimSpace(strings.TrimPrefix(cmdLine, "ai"))
-	if request == "" {
-		return fmt.Errorf("usage: ai <request> (e.g., 'ai make it darker')")
+	if len(parts) != 1 {
+		return fmt.Errorf("usage: ai (enter interactive session)")
 	}
 
-	// Get current pattern state
-	currentPattern := h.pattern.String()
+	// Clear any previous conversation history to start fresh
+	h.aiClient.ClearHistory()
 
-	fmt.Println("AI thinking...")
+	fmt.Println("Entering AI session. Type 'exit' to return to command mode.")
+	fmt.Println()
 
-	// Generate commands
-	ctx := context.Background()
-	commands, err := h.aiClient.GenerateCommands(ctx, request, currentPattern)
+	// Create readline for AI session
+	rl, err := readline.New("AI> ")
 	if err != nil {
-		return fmt.Errorf("AI error: %w", err)
+		return fmt.Errorf("failed to initialize readline: %w", err)
 	}
+	defer rl.Close()
 
-	if len(commands) == 0 {
-		fmt.Println("AI: No changes needed")
-		return nil
-	}
+	ctx := context.Background()
 
-	// Execute each command
-	fmt.Printf("AI executing %d command(s):\n", len(commands))
-	for _, cmd := range commands {
-		fmt.Printf("  > %s\n", cmd)
-		if err := h.ProcessCommand(cmd); err != nil {
-			fmt.Printf("  Error: %v\n", err)
+	for {
+		// Read user input
+		input, err := rl.Readline()
+		if err != nil { // io.EOF or other error
+			fmt.Println("\nExiting AI session.")
+			return nil
 		}
+
+		input = strings.TrimSpace(input)
+
+		// Check for exit command
+		if strings.ToLower(input) == "exit" {
+			fmt.Println("Exiting AI session.")
+			return nil
+		}
+
+		if input == "" {
+			continue
+		}
+
+		// Get current pattern state
+		currentPattern := h.pattern.String()
+
+		// Send to AI
+		response, err := h.aiClient.Session(ctx, input, currentPattern)
+		if err != nil {
+			fmt.Printf("AI error: %v\n", err)
+			continue
+		}
+
+		// Print AI response (clean up [EXECUTE] blocks for display)
+		displayMessage := cleanExecuteBlocks(response.Message)
+		fmt.Printf("\n%s\n", displayMessage)
+
+		// Execute any commands
+		if len(response.Commands) > 0 {
+			fmt.Printf("\nExecuting %d command(s):\n", len(response.Commands))
+			for _, cmd := range response.Commands {
+				fmt.Printf("  > %s\n", cmd)
+				if err := h.ProcessCommand(cmd); err != nil {
+					fmt.Printf("  Error: %v\n", err)
+				}
+			}
+		}
+
+		fmt.Println()
+	}
+}
+
+// cleanExecuteBlocks removes [EXECUTE]...[/EXECUTE] blocks from display
+func cleanExecuteBlocks(text string) string {
+	executeStart := "[EXECUTE]"
+	executeEnd := "[/EXECUTE]"
+
+	for {
+		startIdx := strings.Index(text, executeStart)
+		if startIdx == -1 {
+			break
+		}
+
+		endIdx := strings.Index(text[startIdx:], executeEnd)
+		if endIdx == -1 {
+			break
+		}
+
+		// Remove the entire block including markers
+		text = text[:startIdx] + text[startIdx+endIdx+len(executeEnd):]
 	}
 
-	return nil
+	return strings.TrimSpace(text)
 }
 
 // handleAsk: ask <question>
@@ -472,11 +528,11 @@ func (h *Handler) handleHelp(parts []string) error {
   load <name>             Load a saved pattern (e.g., 'load bass_line')
   list                    List all saved patterns
   delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
-  ai <request>            Ask AI to modify pattern (AI: %s)
-                          Examples: 'ai make it darker', 'ai add variation'
-  ask <question>          Ask AI about your pattern (AI: %s)
-                          Examples: 'ask what scale is this?', 'ask suggest ideas'
-                          Maintains conversation history for follow-up questions
+  ai                      Enter interactive AI session (AI: %s)
+                          Conversational mode - ask questions, get suggestions,
+                          and apply changes in real-time. Type 'exit' to return.
+  ask <question>          Ask AI a single question (AI: %s)
+                          Quick questions without entering session mode
   clear-chat              Clear AI conversation history
   help                    Show this help message
   quit                    Exit the program
