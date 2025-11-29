@@ -81,6 +81,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleDelete(parts)
 	case "ai":
 		return h.handleAI(cmdLine)
+	case "ask":
+		return h.handleAsk(cmdLine)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -400,6 +402,37 @@ func (h *Handler) handleAI(cmdLine string) error {
 	return nil
 }
 
+// handleAsk: ask <question>
+func (h *Handler) handleAsk(cmdLine string) error {
+	// Check if AI client is available
+	if h.aiClient == nil {
+		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
+	}
+
+	// Extract the question (everything after "ask ")
+	question := strings.TrimSpace(strings.TrimPrefix(cmdLine, "ask"))
+	if question == "" {
+		return fmt.Errorf("usage: ask <question> (e.g., 'ask what scale is this in?')")
+	}
+
+	// Get current pattern state
+	currentPattern := h.pattern.String()
+
+	fmt.Println("AI thinking...")
+
+	// Get conversational response
+	ctx := context.Background()
+	response, err := h.aiClient.Chat(ctx, question, currentPattern)
+	if err != nil {
+		return fmt.Errorf("AI error: %w", err)
+	}
+
+	// Print response
+	fmt.Printf("\n%s\n\n", response)
+
+	return nil
+}
+
 // handleHelp: help
 func (h *Handler) handleHelp(parts []string) error {
 	aiStatus := "disabled"
@@ -423,13 +456,15 @@ func (h *Handler) handleHelp(parts []string) error {
   delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
   ai <request>            Ask AI to modify pattern (AI: %s)
                           Examples: 'ai make it darker', 'ai add variation'
+  ask <question>          Ask AI about your pattern (AI: %s)
+                          Examples: 'ask what scale is this?', 'ask suggest ideas'
   help                    Show this help message
   quit                    Exit the program
   <enter>                 Show current pattern (same as 'show')
 
 Notes: C4, D#5, Bb3, etc. | Steps: 1-16 | Default velocity: 100 | Default gate: 90%%
 Patterns saved in 'patterns/' directory as JSON files.
-AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus)
+AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus, aiStatus)
 
 	fmt.Println(helpText)
 	return nil
