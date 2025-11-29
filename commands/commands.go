@@ -10,15 +10,23 @@ import (
 	"iltempo.de/midi-ai/sequence"
 )
 
+// VerboseController allows controlling verbose output
+type VerboseController interface {
+	SetVerbose(bool)
+	IsVerbose() bool
+}
+
 // Handler processes user commands
 type Handler struct {
-	pattern *sequence.Pattern
+	pattern           *sequence.Pattern
+	verboseController VerboseController
 }
 
 // New creates a new command handler
-func New(pattern *sequence.Pattern) *Handler {
+func New(pattern *sequence.Pattern, verboseController VerboseController) *Handler {
 	return &Handler{
-		pattern: pattern,
+		pattern:           pattern,
+		verboseController: verboseController,
 	}
 }
 
@@ -26,7 +34,8 @@ func New(pattern *sequence.Pattern) *Handler {
 func (h *Handler) ProcessCommand(cmdLine string) error {
 	cmdLine = strings.TrimSpace(cmdLine)
 	if cmdLine == "" {
-		return nil
+		// Empty line: show pattern
+		return h.handleShow([]string{"show"})
 	}
 
 	parts := strings.Fields(cmdLine)
@@ -47,6 +56,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleTempo(parts)
 	case "show":
 		return h.handleShow(parts)
+	case "verbose":
+		return h.handleVerbose(parts)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -141,6 +152,38 @@ func (h *Handler) handleShow(parts []string) error {
 	return nil
 }
 
+// handleVerbose: verbose [on|off]
+func (h *Handler) handleVerbose(parts []string) error {
+	if len(parts) == 1 {
+		// Toggle
+		currentState := h.verboseController.IsVerbose()
+		h.verboseController.SetVerbose(!currentState)
+		if !currentState {
+			fmt.Println("Verbose mode enabled (showing steps)")
+		} else {
+			fmt.Println("Verbose mode disabled")
+		}
+		return nil
+	}
+
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: verbose [on|off]")
+	}
+
+	switch strings.ToLower(parts[1]) {
+	case "on":
+		h.verboseController.SetVerbose(true)
+		fmt.Println("Verbose mode enabled (showing steps)")
+	case "off":
+		h.verboseController.SetVerbose(false)
+		fmt.Println("Verbose mode disabled")
+	default:
+		return fmt.Errorf("usage: verbose [on|off]")
+	}
+
+	return nil
+}
+
 // handleHelp: help
 func (h *Handler) handleHelp(parts []string) error {
 	helpText := `Available commands:
@@ -149,8 +192,10 @@ func (h *Handler) handleHelp(parts []string) error {
   clear               Clear all steps to rests
   tempo <bpm>         Change tempo (e.g., 'tempo 120')
   show                Display current pattern
+  verbose [on|off]    Toggle or set verbose step output
   help                Show this help message
   quit                Exit the program
+  <enter>             Show current pattern (same as 'show')
 
 Notes can be specified as: C4, D#5, Bb3, etc.
 Steps are numbered 1-16.`

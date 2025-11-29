@@ -54,7 +54,7 @@ func main() {
 	fmt.Println()
 
 	// Create command handler that modifies the "next" pattern
-	cmdHandler := commands.New(engine.GetNextPattern())
+	cmdHandler := commands.New(engine.GetNextPattern(), engine)
 
 	// Read commands from stdin
 	err = cmdHandler.ReadLoop(os.Stdin)

@@ -17,6 +17,8 @@ type Engine struct {
 	mu             sync.RWMutex
 	stopChan       chan struct{}
 	stoppedChan    chan struct{}
+	verbose        bool
+	verboseMu      sync.RWMutex
 }
 
 // New creates a new playback engine
@@ -35,6 +37,20 @@ func (e *Engine) GetNextPattern() *sequence.Pattern {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.nextPattern
+}
+
+// SetVerbose enables or disables step-by-step output
+func (e *Engine) SetVerbose(verbose bool) {
+	e.verboseMu.Lock()
+	defer e.verboseMu.Unlock()
+	e.verbose = verbose
+}
+
+// IsVerbose returns whether verbose mode is enabled
+func (e *Engine) IsVerbose() bool {
+	e.verboseMu.RLock()
+	defer e.verboseMu.RUnlock()
+	return e.verbose
 }
 
 // Start begins the playback loop in a goroutine
@@ -89,9 +105,11 @@ func (e *Engine) playbackLoop() {
 					fmt.Printf("Error sending Note On: %v\n", err)
 				}
 
-				// Print visual feedback
-				noteName := midiToNoteName(step.Note)
-				fmt.Printf("♪ Step %2d: %s\n", stepIdx+1, noteName)
+				// Print visual feedback (only if verbose)
+				if e.IsVerbose() {
+					noteName := midiToNoteName(step.Note)
+					fmt.Printf("♪ Step %2d: %s\n", stepIdx+1, noteName)
+				}
 
 				// Schedule Note Off after gate duration
 				time.AfterFunc(gateDuration, func() {
@@ -100,8 +118,8 @@ func (e *Engine) playbackLoop() {
 						fmt.Printf("Error sending Note Off: %v\n", err)
 					}
 				})
-			} else {
-				// Rest - just print indicator
+			} else if e.IsVerbose() {
+				// Rest - print indicator only if verbose
 				fmt.Printf("  Step %2d: ---\n", stepIdx+1)
 			}
 
@@ -118,7 +136,9 @@ func (e *Engine) playbackLoop() {
 		e.currentPattern = e.nextPattern.Clone()
 		e.mu.Unlock()
 
-		fmt.Println("--- Loop ---")
+		if e.IsVerbose() {
+			fmt.Println("--- Loop ---")
+		}
 	}
 }
 
