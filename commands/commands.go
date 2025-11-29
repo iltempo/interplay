@@ -1,12 +1,12 @@
 package commands
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 
+	"github.com/chzyer/readline"
 	"github.com/iltempo/interplay/sequence"
 )
 
@@ -378,27 +378,26 @@ Patterns saved in 'patterns/' directory as JSON files.`
 
 // ReadLoop reads commands from input until "quit" or EOF
 func (h *Handler) ReadLoop(reader io.Reader) error {
-	scanner := bufio.NewScanner(reader)
+	// Configure readline with history
+	rl, err := readline.New("> ")
+	if err != nil {
+		return fmt.Errorf("failed to initialize readline: %w", err)
+	}
+	defer rl.Close()
 
-	fmt.Print("> ")
-	for scanner.Scan() {
-		line := scanner.Text()
+	for {
+		line, err := rl.Readline()
+		if err != nil { // io.EOF or other error
+			return nil
+		}
 
 		if strings.TrimSpace(strings.ToLower(line)) == "quit" {
 			return nil
 		}
 
-		err := h.ProcessCommand(line)
+		err = h.ProcessCommand(line)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
-
-		fmt.Print("> ")
 	}
-
-	if err := scanner.Err(); err != nil {
-		return fmt.Errorf("error reading input: %w", err)
-	}
-
-	return nil
 }
