@@ -26,21 +26,23 @@ type Pattern struct {
 }
 
 // New creates a new pattern with the default starting pattern:
-// Steps 1, 5, 9, 13: C3 (MIDI note 48)
-// All other steps: rest
+// Melodic rhythmic pattern in C minor
 func New() *Pattern {
 	p := &Pattern{
 		BPM: 80, // default tempo
 	}
 
-	// Initialize with default pattern (C3 on beats)
+	// Initialize all steps as rests with defaults
 	for i := 0; i < NumSteps; i++ {
 		p.Steps[i] = Step{IsRest: true, Velocity: 100, Gate: 90}
 	}
-	p.Steps[0] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90}  // Step 1: C3
-	p.Steps[4] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90}  // Step 5: C3
-	p.Steps[8] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90}  // Step 9: C3
-	p.Steps[12] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90} // Step 13: C3
+
+	// Melodic pattern with dynamic expression
+	p.Steps[0] = Step{Note: 48, IsRest: false, Velocity: 110, Gate: 80}  // Step 1:  C3
+	p.Steps[3] = Step{Note: 51, IsRest: false, Velocity: 90, Gate: 60}   // Step 4:  D#3
+	p.Steps[4] = Step{Note: 55, IsRest: false, Velocity: 120, Gate: 90}  // Step 5:  G3
+	p.Steps[8] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 80}  // Step 9:  C3
+	p.Steps[12] = Step{Note: 53, IsRest: false, Velocity: 110, Gate: 70} // Step 13: F3
 
 	return p
 }
