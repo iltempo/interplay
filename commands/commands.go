@@ -52,6 +52,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleRest(parts)
 	case "clear":
 		return h.handleClear(parts)
+	case "reset":
+		return h.handleReset(parts)
 	case "tempo":
 		return h.handleTempo(parts)
 	case "velocity":
@@ -131,6 +133,22 @@ func (h *Handler) handleClear(parts []string) error {
 
 	h.pattern.Clear()
 	fmt.Println("Cleared all steps")
+	return nil
+}
+
+// handleReset: reset
+func (h *Handler) handleReset(parts []string) error {
+	if len(parts) != 1 {
+		return fmt.Errorf("usage: reset")
+	}
+
+	// Create a new default pattern
+	defaultPattern := sequence.New()
+
+	// Copy it into the current pattern
+	h.pattern.CopyFrom(defaultPattern)
+
+	fmt.Println("Reset to default pattern")
 	return nil
 }
 
@@ -339,6 +357,7 @@ func (h *Handler) handleHelp(parts []string) error {
   velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
   gate <step> <percent>   Set step gate length 1-100% (e.g., 'gate 1 50')
   clear                   Clear all steps to rests
+  reset                   Reset to default pattern
   tempo <bpm>             Change tempo (e.g., 'tempo 120')
   show                    Display current pattern
   verbose [on|off]        Toggle or set verbose step output
