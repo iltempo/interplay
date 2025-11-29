@@ -12,8 +12,10 @@ const (
 
 // Step represents a single step in the sequence
 type Step struct {
-	Note   uint8 // MIDI note number (0-127), 0 means rest
-	IsRest bool  // true if this step is a rest/silence
+	Note     uint8 // MIDI note number (0-127), 0 means rest
+	IsRest   bool  // true if this step is a rest/silence
+	Velocity uint8 // MIDI velocity (0-127), default 100
+	Gate     int   // Gate length as percentage (1-100), default 90
 }
 
 // Pattern represents a 16-step sequence pattern
@@ -33,12 +35,12 @@ func New() *Pattern {
 
 	// Initialize with default pattern (C3 on beats)
 	for i := 0; i < NumSteps; i++ {
-		p.Steps[i] = Step{IsRest: true}
+		p.Steps[i] = Step{IsRest: true, Velocity: 100, Gate: 90}
 	}
-	p.Steps[0] = Step{Note: 48, IsRest: false}  // Step 1: C3
-	p.Steps[4] = Step{Note: 48, IsRest: false}  // Step 5: C3
-	p.Steps[8] = Step{Note: 48, IsRest: false}  // Step 9: C3
-	p.Steps[12] = Step{Note: 48, IsRest: false} // Step 13: C3
+	p.Steps[0] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90}  // Step 1: C3
+	p.Steps[4] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90}  // Step 5: C3
+	p.Steps[8] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90}  // Step 9: C3
+	p.Steps[12] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 90} // Step 13: C3
 
 	return p
 }
@@ -57,7 +59,18 @@ func (p *Pattern) SetNote(stepNum int, note uint8) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.Steps[stepNum-1] = Step{Note: note, IsRest: false}
+	// Preserve existing velocity/gate if step already has values, otherwise use defaults
+	existingStep := p.Steps[stepNum-1]
+	velocity := existingStep.Velocity
+	gate := existingStep.Gate
+	if velocity == 0 {
+		velocity = 100
+	}
+	if gate == 0 {
+		gate = 90
+	}
+
+	p.Steps[stepNum-1] = Step{Note: note, IsRest: false, Velocity: velocity, Gate: gate}
 	return nil
 }
 
@@ -70,7 +83,39 @@ func (p *Pattern) SetRest(stepNum int) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.Steps[stepNum-1] = Step{IsRest: true}
+	p.Steps[stepNum-1] = Step{IsRest: true, Velocity: 100, Gate: 90}
+	return nil
+}
+
+// SetVelocity sets the velocity for a specific step
+func (p *Pattern) SetVelocity(stepNum int, velocity uint8) error {
+	if stepNum < 1 || stepNum > NumSteps {
+		return fmt.Errorf("step must be 1-%d", NumSteps)
+	}
+	if velocity > 127 {
+		return fmt.Errorf("velocity must be 0-127")
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.Steps[stepNum-1].Velocity = velocity
+	return nil
+}
+
+// SetGate sets the gate length (as percentage) for a specific step
+func (p *Pattern) SetGate(stepNum int, gate int) error {
+	if stepNum < 1 || stepNum > NumSteps {
+		return fmt.Errorf("step must be 1-%d", NumSteps)
+	}
+	if gate < 1 || gate > 100 {
+		return fmt.Errorf("gate must be 1-100 (percentage)")
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.Steps[stepNum-1].Gate = gate
 	return nil
 }
 
@@ -156,7 +201,7 @@ func (p *Pattern) String() string {
 			sb.WriteString(fmt.Sprintf("  %2d: rest\n", stepNum))
 		} else {
 			noteName := midiToNoteName(step.Note)
-			sb.WriteString(fmt.Sprintf("  %2d: %s (MIDI %d)\n", stepNum, noteName, step.Note))
+			sb.WriteString(fmt.Sprintf("  %2d: %s (vel:%d gate:%d%%)\n", stepNum, noteName, step.Velocity, step.Gate))
 		}
 	}
 

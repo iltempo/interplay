@@ -54,6 +54,10 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleClear(parts)
 	case "tempo":
 		return h.handleTempo(parts)
+	case "velocity":
+		return h.handleVelocity(parts)
+	case "gate":
+		return h.handleGate(parts)
 	case "show":
 		return h.handleShow(parts)
 	case "verbose":
@@ -192,6 +196,60 @@ func (h *Handler) handleVerbose(parts []string) error {
 	return nil
 }
 
+// handleVelocity: velocity <step> <value>
+func (h *Handler) handleVelocity(parts []string) error {
+	if len(parts) != 3 {
+		return fmt.Errorf("usage: velocity <step> <value> (e.g., 'velocity 1 80')")
+	}
+
+	stepNum, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid step number: %s", parts[1])
+	}
+
+	velocity, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return fmt.Errorf("invalid velocity: %s", parts[2])
+	}
+
+	if velocity < 0 || velocity > 127 {
+		return fmt.Errorf("velocity must be 0-127")
+	}
+
+	err = h.pattern.SetVelocity(stepNum, uint8(velocity))
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Set step %d velocity to %d\n", stepNum, velocity)
+	return nil
+}
+
+// handleGate: gate <step> <percentage>
+func (h *Handler) handleGate(parts []string) error {
+	if len(parts) != 3 {
+		return fmt.Errorf("usage: gate <step> <percentage> (e.g., 'gate 1 50')")
+	}
+
+	stepNum, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid step number: %s", parts[1])
+	}
+
+	gate, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return fmt.Errorf("invalid gate: %s", parts[2])
+	}
+
+	err = h.pattern.SetGate(stepNum, gate)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Set step %d gate to %d%%\n", stepNum, gate)
+	return nil
+}
+
 // handleSave: save <name>
 func (h *Handler) handleSave(parts []string) error {
 	if len(parts) < 2 {
@@ -276,23 +334,24 @@ func (h *Handler) handleDelete(parts []string) error {
 // handleHelp: help
 func (h *Handler) handleHelp(parts []string) error {
 	helpText := `Available commands:
-  set <step> <note>   Set a step to play a note (e.g., 'set 1 C4')
-  rest <step>         Set a step to rest/silence (e.g., 'rest 1')
-  clear               Clear all steps to rests
-  tempo <bpm>         Change tempo (e.g., 'tempo 120')
-  show                Display current pattern
-  verbose [on|off]    Toggle or set verbose step output
-  save <name>         Save current pattern (e.g., 'save bass_line')
-  load <name>         Load a saved pattern (e.g., 'load bass_line')
-  list                List all saved patterns
-  delete <name>       Delete a saved pattern (e.g., 'delete bass_line')
-  help                Show this help message
-  quit                Exit the program
-  <enter>             Show current pattern (same as 'show')
+  set <step> <note>       Set a step to play a note (e.g., 'set 1 C4')
+  rest <step>             Set a step to rest/silence (e.g., 'rest 1')
+  velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
+  gate <step> <percent>   Set step gate length 1-100% (e.g., 'gate 1 50')
+  clear                   Clear all steps to rests
+  tempo <bpm>             Change tempo (e.g., 'tempo 120')
+  show                    Display current pattern
+  verbose [on|off]        Toggle or set verbose step output
+  save <name>             Save current pattern (e.g., 'save bass_line')
+  load <name>             Load a saved pattern (e.g., 'load bass_line')
+  list                    List all saved patterns
+  delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
+  help                    Show this help message
+  quit                    Exit the program
+  <enter>                 Show current pattern (same as 'show')
 
-Notes can be specified as: C4, D#5, Bb3, etc.
-Steps are numbered 1-16.
-Patterns are saved in the 'patterns/' directory as JSON files.`
+Notes: C4, D#5, Bb3, etc. | Steps: 1-16 | Default velocity: 100 | Default gate: 90%
+Patterns saved in 'patterns/' directory as JSON files.`
 
 	fmt.Println(helpText)
 	return nil

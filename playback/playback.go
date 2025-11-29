@@ -69,7 +69,6 @@ func (e *Engine) playbackLoop() {
 	defer close(e.stoppedChan)
 
 	const channel = 0 // MIDI channel 1 (0-indexed)
-	const velocity = 100
 
 	for {
 		// Get current pattern (snapshot for this loop iteration)
@@ -82,9 +81,6 @@ func (e *Engine) playbackLoop() {
 		// At 80 BPM: quarter note = 750ms, sixteenth note = 187.5ms
 		stepDurationMs := (60_000.0 / float64(bpm)) / 4.0
 		stepDuration := time.Duration(stepDurationMs * float64(time.Millisecond))
-
-		// Gate length: 90% of step duration
-		gateDuration := time.Duration(float64(stepDuration) * 0.9)
 
 		// Play all 16 steps
 		for stepIdx := 0; stepIdx < sequence.NumSteps; stepIdx++ {
@@ -99,6 +95,19 @@ func (e *Engine) playbackLoop() {
 			step := pattern.Steps[stepIdx]
 
 			if !step.IsRest {
+				// Use per-step velocity
+				velocity := step.Velocity
+				if velocity == 0 {
+					velocity = 100 // default if not set
+				}
+
+				// Calculate gate duration based on step's gate percentage
+				gate := step.Gate
+				if gate == 0 {
+					gate = 90 // default if not set
+				}
+				gateDuration := time.Duration(float64(stepDuration) * float64(gate) / 100.0)
+
 				// Send Note On
 				err := e.midiOut.NoteOn(channel, step.Note, velocity)
 				if err != nil {
@@ -108,7 +117,7 @@ func (e *Engine) playbackLoop() {
 				// Print visual feedback (only if verbose)
 				if e.IsVerbose() {
 					noteName := midiToNoteName(step.Note)
-					fmt.Printf("♪ Step %2d: %s\n", stepIdx+1, noteName)
+					fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%%)\n", stepIdx+1, noteName, velocity, gate)
 				}
 
 				// Schedule Note Off after gate duration

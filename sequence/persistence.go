@@ -15,8 +15,10 @@ const (
 
 // PatternStep represents a single step in the JSON format
 type PatternStep struct {
-	Step int    `json:"step"`
-	Note string `json:"note"`
+	Step     int    `json:"step"`
+	Note     string `json:"note"`
+	Velocity uint8  `json:"velocity,omitempty"`
+	Gate     int    `json:"gate,omitempty"`
 }
 
 // PatternFile represents the JSON structure for saving/loading patterns
@@ -42,10 +44,19 @@ func (p *Pattern) ToPatternFile(name string) *PatternFile {
 	// Only include non-rest steps
 	for i := 0; i < NumSteps; i++ {
 		if !p.Steps[i].IsRest {
-			pf.Steps = append(pf.Steps, PatternStep{
+			step := p.Steps[i]
+			ps := PatternStep{
 				Step: i + 1, // 1-indexed for user
-				Note: midiToNoteName(p.Steps[i].Note),
-			})
+				Note: midiToNoteName(step.Note),
+			}
+			// Only include velocity/gate if non-default
+			if step.Velocity != 100 {
+				ps.Velocity = step.Velocity
+			}
+			if step.Gate != 90 {
+				ps.Gate = step.Gate
+			}
+			pf.Steps = append(pf.Steps, ps)
 		}
 	}
 
@@ -74,7 +85,22 @@ func FromPatternFile(pf *PatternFile) (*Pattern, error) {
 			return nil, fmt.Errorf("invalid note in step %d: %w", ps.Step, err)
 		}
 
-		p.Steps[ps.Step-1] = Step{Note: midiNote, IsRest: false}
+		// Use defaults if not specified in JSON
+		velocity := ps.Velocity
+		if velocity == 0 {
+			velocity = 100
+		}
+		gate := ps.Gate
+		if gate == 0 {
+			gate = 90
+		}
+
+		p.Steps[ps.Step-1] = Step{
+			Note:     midiNote,
+			IsRest:   false,
+			Velocity: velocity,
+			Gate:     gate,
+		}
 	}
 
 	return p, nil
