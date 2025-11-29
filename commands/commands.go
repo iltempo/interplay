@@ -83,6 +83,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleAI(cmdLine)
 	case "ask":
 		return h.handleAsk(cmdLine)
+	case "clear-chat":
+		return h.handleClearChat(parts)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -433,6 +435,22 @@ func (h *Handler) handleAsk(cmdLine string) error {
 	return nil
 }
 
+// handleClearChat: clear-chat
+func (h *Handler) handleClearChat(parts []string) error {
+	// Check if AI client is available
+	if h.aiClient == nil {
+		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
+	}
+
+	if len(parts) != 1 {
+		return fmt.Errorf("usage: clear-chat")
+	}
+
+	h.aiClient.ClearHistory()
+	fmt.Println("Conversation history cleared")
+	return nil
+}
+
 // handleHelp: help
 func (h *Handler) handleHelp(parts []string) error {
 	aiStatus := "disabled"
@@ -458,6 +476,8 @@ func (h *Handler) handleHelp(parts []string) error {
                           Examples: 'ai make it darker', 'ai add variation'
   ask <question>          Ask AI about your pattern (AI: %s)
                           Examples: 'ask what scale is this?', 'ask suggest ideas'
+                          Maintains conversation history for follow-up questions
+  clear-chat              Clear AI conversation history
   help                    Show this help message
   quit                    Exit the program
   <enter>                 Show current pattern (same as 'show')

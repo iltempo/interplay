@@ -78,7 +78,8 @@ Current pattern state will be provided. Respond conversationally and helpfully.`
 
 // Client wraps the Claude API client
 type Client struct {
-	client anthropic.Client
+	client          anthropic.Client
+	conversationHistory []anthropic.MessageParam
 }
 
 // New creates a new AI client
@@ -142,18 +143,23 @@ func (c *Client) GenerateCommands(ctx context.Context, userRequest string, curre
 }
 
 // Chat asks Claude a question about the pattern and returns a conversational response
+// Maintains conversation history for follow-up questions
 func (c *Client) Chat(ctx context.Context, question string, currentPattern string) (string, error) {
-	userMessage := fmt.Sprintf("Current pattern:\n%s\n\nQuestion: %s", currentPattern, question)
+	// Build user message with pattern context
+	userMessage := fmt.Sprintf("Current pattern:\n%s\n\n%s", currentPattern, question)
 
+	// Add user message to history
+	c.conversationHistory = append(c.conversationHistory,
+		anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage)))
+
+	// Send conversation with full history
 	message, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
 		Model:     anthropic.ModelClaude3_5HaikuLatest,
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
 			{Text: chatSystemPrompt},
 		},
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(userMessage)),
-		},
+		Messages: c.conversationHistory,
 	})
 
 	if err != nil {
@@ -169,5 +175,14 @@ func (c *Client) Chat(ctx context.Context, question string, currentPattern strin
 		}
 	}
 
+	// Add assistant response to history
+	c.conversationHistory = append(c.conversationHistory,
+		anthropic.NewAssistantMessage(anthropic.NewTextBlock(responseText)))
+
 	return strings.TrimSpace(responseText), nil
+}
+
+// ClearHistory clears the conversation history
+func (c *Client) ClearHistory() {
+	c.conversationHistory = nil
 }
