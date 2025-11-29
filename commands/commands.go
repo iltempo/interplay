@@ -1,12 +1,14 @@
 package commands
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strconv"
 	"strings"
 
 	"github.com/chzyer/readline"
+	"github.com/iltempo/interplay/ai"
 	"github.com/iltempo/interplay/sequence"
 )
 
@@ -20,13 +22,18 @@ type VerboseController interface {
 type Handler struct {
 	pattern           *sequence.Pattern
 	verboseController VerboseController
+	aiClient          *ai.Client
 }
 
 // New creates a new command handler
 func New(pattern *sequence.Pattern, verboseController VerboseController) *Handler {
+	// Try to initialize AI client (optional)
+	aiClient, _ := ai.NewFromEnv()
+
 	return &Handler{
 		pattern:           pattern,
 		verboseController: verboseController,
+		aiClient:          aiClient,
 	}
 }
 
@@ -72,6 +79,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleList(parts)
 	case "delete":
 		return h.handleDelete(parts)
+	case "ai":
+		return h.handleAI(cmdLine)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -349,13 +358,60 @@ func (h *Handler) handleDelete(parts []string) error {
 	return nil
 }
 
+// handleAI: ai <request>
+func (h *Handler) handleAI(cmdLine string) error {
+	// Check if AI client is available
+	if h.aiClient == nil {
+		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
+	}
+
+	// Extract the request (everything after "ai ")
+	request := strings.TrimSpace(strings.TrimPrefix(cmdLine, "ai"))
+	if request == "" {
+		return fmt.Errorf("usage: ai <request> (e.g., 'ai make it darker')")
+	}
+
+	// Get current pattern state
+	currentPattern := h.pattern.String()
+
+	fmt.Println("AI thinking...")
+
+	// Generate commands
+	ctx := context.Background()
+	commands, err := h.aiClient.GenerateCommands(ctx, request, currentPattern)
+	if err != nil {
+		return fmt.Errorf("AI error: %w", err)
+	}
+
+	if len(commands) == 0 {
+		fmt.Println("AI: No changes needed")
+		return nil
+	}
+
+	// Execute each command
+	fmt.Printf("AI executing %d command(s):\n", len(commands))
+	for _, cmd := range commands {
+		fmt.Printf("  > %s\n", cmd)
+		if err := h.ProcessCommand(cmd); err != nil {
+			fmt.Printf("  Error: %v\n", err)
+		}
+	}
+
+	return nil
+}
+
 // handleHelp: help
 func (h *Handler) handleHelp(parts []string) error {
-	helpText := `Available commands:
+	aiStatus := "disabled"
+	if h.aiClient != nil {
+		aiStatus = "enabled"
+	}
+
+	helpText := fmt.Sprintf(`Available commands:
   set <step> <note>       Set a step to play a note (e.g., 'set 1 C4')
   rest <step>             Set a step to rest/silence (e.g., 'rest 1')
   velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
-  gate <step> <percent>   Set step gate length 1-100% (e.g., 'gate 1 50')
+  gate <step> <percent>   Set step gate length 1-100%% (e.g., 'gate 1 50')
   clear                   Clear all steps to rests
   reset                   Reset to default pattern
   tempo <bpm>             Change tempo (e.g., 'tempo 120')
@@ -365,12 +421,15 @@ func (h *Handler) handleHelp(parts []string) error {
   load <name>             Load a saved pattern (e.g., 'load bass_line')
   list                    List all saved patterns
   delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
+  ai <request>            Ask AI to modify pattern (AI: %s)
+                          Examples: 'ai make it darker', 'ai add variation'
   help                    Show this help message
   quit                    Exit the program
   <enter>                 Show current pattern (same as 'show')
 
-Notes: C4, D#5, Bb3, etc. | Steps: 1-16 | Default velocity: 100 | Default gate: 90%
-Patterns saved in 'patterns/' directory as JSON files.`
+Notes: C4, D#5, Bb3, etc. | Steps: 1-16 | Default velocity: 100 | Default gate: 90%%
+Patterns saved in 'patterns/' directory as JSON files.
+AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus)
 
 	fmt.Println(helpText)
 	return nil
