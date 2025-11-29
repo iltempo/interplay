@@ -128,6 +128,18 @@ func (p *Pattern) Clone() *Pattern {
 	return clone
 }
 
+// CopyFrom copies the steps and BPM from another pattern (thread-safe)
+func (p *Pattern) CopyFrom(other *Pattern) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	other.mu.RLock()
+	defer other.mu.RUnlock()
+
+	p.Steps = other.Steps
+	p.BPM = other.BPM
+}
+
 // String returns a human-readable representation of the pattern
 func (p *Pattern) String() string {
 	p.mu.RLock()

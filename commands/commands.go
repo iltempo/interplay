@@ -58,6 +58,14 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleShow(parts)
 	case "verbose":
 		return h.handleVerbose(parts)
+	case "save":
+		return h.handleSave(parts)
+	case "load":
+		return h.handleLoad(parts)
+	case "list":
+		return h.handleList(parts)
+	case "delete":
+		return h.handleDelete(parts)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -184,6 +192,87 @@ func (h *Handler) handleVerbose(parts []string) error {
 	return nil
 }
 
+// handleSave: save <name>
+func (h *Handler) handleSave(parts []string) error {
+	if len(parts) < 2 {
+		return fmt.Errorf("usage: save <name> (e.g., 'save my_pattern')")
+	}
+
+	// Join remaining parts as the name (allows spaces)
+	name := strings.Join(parts[1:], " ")
+
+	err := h.pattern.Save(name)
+	if err != nil {
+		return fmt.Errorf("failed to save pattern: %w", err)
+	}
+
+	fmt.Printf("Saved pattern '%s'\n", name)
+	return nil
+}
+
+// handleLoad: load <name>
+func (h *Handler) handleLoad(parts []string) error {
+	if len(parts) < 2 {
+		return fmt.Errorf("usage: load <name> (e.g., 'load my_pattern')")
+	}
+
+	// Join remaining parts as the name (allows spaces)
+	name := strings.Join(parts[1:], " ")
+
+	loadedPattern, err := sequence.Load(name)
+	if err != nil {
+		return fmt.Errorf("failed to load pattern: %w", err)
+	}
+
+	// Copy loaded pattern data into current pattern
+	h.pattern.CopyFrom(loadedPattern)
+
+	fmt.Printf("Loaded pattern '%s' (Tempo: %d BPM)\n", name, loadedPattern.BPM)
+	return nil
+}
+
+// handleList: list
+func (h *Handler) handleList(parts []string) error {
+	if len(parts) != 1 {
+		return fmt.Errorf("usage: list")
+	}
+
+	patterns, err := sequence.List()
+	if err != nil {
+		return fmt.Errorf("failed to list patterns: %w", err)
+	}
+
+	if len(patterns) == 0 {
+		fmt.Println("No saved patterns found")
+		return nil
+	}
+
+	fmt.Printf("Saved patterns (%d):\n", len(patterns))
+	for _, name := range patterns {
+		fmt.Printf("  - %s\n", name)
+	}
+
+	return nil
+}
+
+// handleDelete: delete <name>
+func (h *Handler) handleDelete(parts []string) error {
+	if len(parts) < 2 {
+		return fmt.Errorf("usage: delete <name> (e.g., 'delete my_pattern')")
+	}
+
+	// Join remaining parts as the name (allows spaces)
+	name := strings.Join(parts[1:], " ")
+
+	err := sequence.Delete(name)
+	if err != nil {
+		return fmt.Errorf("failed to delete pattern: %w", err)
+	}
+
+	fmt.Printf("Deleted pattern '%s'\n", name)
+	return nil
+}
+
 // handleHelp: help
 func (h *Handler) handleHelp(parts []string) error {
 	helpText := `Available commands:
@@ -193,12 +282,17 @@ func (h *Handler) handleHelp(parts []string) error {
   tempo <bpm>         Change tempo (e.g., 'tempo 120')
   show                Display current pattern
   verbose [on|off]    Toggle or set verbose step output
+  save <name>         Save current pattern (e.g., 'save bass_line')
+  load <name>         Load a saved pattern (e.g., 'load bass_line')
+  list                List all saved patterns
+  delete <name>       Delete a saved pattern (e.g., 'delete bass_line')
   help                Show this help message
   quit                Exit the program
   <enter>             Show current pattern (same as 'show')
 
 Notes can be specified as: C4, D#5, Bb3, etc.
-Steps are numbered 1-16.`
+Steps are numbered 1-16.
+Patterns are saved in the 'patterns/' directory as JSON files.`
 
 	fmt.Println(helpText)
 	return nil

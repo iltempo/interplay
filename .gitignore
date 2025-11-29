@@ -1,5 +1,8 @@
 # Binaries
 interplay
+
+# Pattern files (user-generated)
+patterns/
 *.exe
 *.dll
 *.so
