@@ -119,6 +119,20 @@ This isolation allows easy replacement: when AI is integrated, delete `commands/
 
 **MIDI Library:**
 - Using `gitlab.com/gomidi/midi/v2` (pure Go, cross-platform, well-maintained)
+- Driver: `rtmididrv` (requires CGO, platform-specific builds)
+
+**Distribution Considerations:**
+- Current implementation requires CGO due to rtmididrv (RtMIDI C++ wrapper)
+- Binary must be built per platform (macOS, Windows, Linux)
+- Platform-specific system libraries required:
+  - macOS: CoreMIDI, CoreAudio frameworks (always present)
+  - Windows: Windows MIDI API (usually present)
+  - Linux: ALSA (`libasound2`) or JACK (`libjack`)
+- Binary size: ~12MB
+- Alternative for static builds: `midicatdrv` (no CGO, requires midicat binary)
+  - Trade-off: pure Go static binary vs. external midicat dependency
+  - Decision: Keep rtmididrv for better performance and direct hardware access
+  - Future: Consider build tags to support both drivers
 
 **MIDI Output Configuration:**
 - Channel: 1 (MIDI channel 0 in code)
