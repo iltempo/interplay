@@ -6,9 +6,9 @@ Interplay is a conversational MIDI sequencer for live music creation and improvi
 
 ## What is Interplay?
 
-Interplay lets you create and modify musical patterns through simple commands and (eventually) natural conversation. Patterns loop continuously, with changes queued and applied at loop boundaries—giving you real-time control without worrying about timing.
+Interplay lets you create and modify musical patterns through simple commands and natural conversation with AI. Patterns loop continuously, with changes queued and applied at loop boundaries—giving you real-time control without worrying about timing.
 
-**Current Status:** Phase 1 - Basic pattern loop with MIDI playback working
+**Current Status:** Phase 3 Complete - AI integration with hybrid command/natural language control
 
 ## Installation
 
@@ -59,15 +59,77 @@ To use Interplay with software synths in your DAW:
 
 This lets you use Interplay with any VST/AU plugin, making it perfect for prototyping without hardware or exploring software synths.
 
-## AI Features (Optional)
+## Usage
 
-Interplay includes optional AI-powered features for natural language interaction. To enable:
+### Basic Commands
+
+Control patterns with simple text commands:
+
+```
+> set 1 C3          # Set step 1 to note C3
+> set 5 G3          # Set step 5 to note G3
+> velocity 1 120    # Make step 1 louder
+> gate 5 50         # Make step 5 staccato (50% gate)
+> tempo 100         # Change to 100 BPM
+> show              # Display current pattern
+> <enter>           # Also displays current pattern
+```
+
+**Pattern Management:**
+```
+> save my_bassline  # Save current pattern
+> load my_bassline  # Load a saved pattern
+> list              # Show all saved patterns
+> delete old_idea   # Delete a pattern
+```
+
+Full command list: type `help`
+
+### AI Mode (Optional)
+
+Interplay includes AI-powered natural language control. To enable:
 
 ```bash
 export ANTHROPIC_API_KEY="your-api-key-here"
 ```
 
-AI features require an [Anthropic API](https://www.anthropic.com/api) account (separate from Claude Pro subscription). Without an API key, all manual commands work normally.
+AI features require an [Anthropic API](https://www.anthropic.com/api) account (separate from Claude Pro subscription).
+
+**Enter AI mode:**
+```
+> ai
+AI> make it darker
+```
+
+In AI mode, you get the best of both worlds:
+- **Direct commands still work** - `set 1 C2`, `tempo 120`, `show`, etc. execute immediately
+- **Natural language** - "make it darker", "add some movement", "what scale is this?"
+- **Press Enter** to show the current pattern
+- Type `exit` to return to normal mode
+
+The AI understands musical concepts and translates your intent into pattern changes:
+
+```
+AI> make it darker
+I'll transpose it down an octave to make it darker and more brooding.
+Executing 4 command(s):
+  > set 1 C2
+  > set 5 G2
+  > set 9 C2
+  > set 13 F2
+Try it out!
+
+AI> what scale is this in?
+This is in C minor! You have C, G, and F - all from the C natural minor scale.
+
+AI> set 2 D2
+Set step 2 to D2 (MIDI 38)
+
+AI> <enter>
+[Shows current pattern]
+```
+
+**Without an API key**, all manual commands work normally - you just won't have AI assistance.
 
 ## Learn More
 
