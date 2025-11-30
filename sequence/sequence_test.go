@@ -85,7 +85,7 @@ func TestMidiToNoteName(t *testing.T) {
 
 // TestSetNote tests setting notes on steps
 func TestSetNote(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// Valid set
 	err := p.SetNote(1, 60)
@@ -103,9 +103,9 @@ func TestSetNote(t *testing.T) {
 	}
 
 	// Step out of range (too high)
-	err = p.SetNote(17, 60)
+	err = p.SetNote(p.Length()+1, 60)
 	if err == nil {
-		t.Error("SetNote(17, 60) should return error for step 17")
+		t.Errorf("SetNote(%d, 60) should return error for step out of range", p.Length()+1)
 	}
 
 	// Note out of range
@@ -117,7 +117,7 @@ func TestSetNote(t *testing.T) {
 
 // TestSetVelocity tests velocity setting
 func TestSetVelocity(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// Valid velocity
 	err := p.SetVelocity(1, 80)
@@ -155,7 +155,7 @@ func TestSetVelocity(t *testing.T) {
 
 // TestSetGate tests gate length setting
 func TestSetGate(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// Valid gate
 	err := p.SetGate(1, 50)
@@ -199,7 +199,7 @@ func TestSetGate(t *testing.T) {
 
 // TestSetRest tests setting rests
 func TestSetRest(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// First set a note
 	p.SetNote(1, 60)
@@ -222,7 +222,7 @@ func TestSetRest(t *testing.T) {
 
 // TestClear tests clearing all steps
 func TestClear(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// Modify some steps
 	p.SetNote(1, 60)
@@ -232,7 +232,7 @@ func TestClear(t *testing.T) {
 	p.Clear()
 
 	// Check all steps are rests
-	for i := 0; i < NumSteps; i++ {
+	for i := 0; i < DefaultPatternLength; i++ {
 		if !p.Steps[i].IsRest {
 			t.Errorf("After Clear(), step %d is not a rest", i+1)
 		}
@@ -241,7 +241,7 @@ func TestClear(t *testing.T) {
 
 // TestClone tests pattern cloning
 func TestClone(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 	p.SetNote(1, 60)
 	p.SetVelocity(1, 80)
 	p.SetGate(1, 50)
@@ -272,12 +272,12 @@ func TestClone(t *testing.T) {
 
 // TestCopyFrom tests copying from another pattern
 func TestCopyFrom(t *testing.T) {
-	p1 := New()
+	p1 := New(DefaultPatternLength)
 	p1.SetNote(1, 60)
 	p1.SetVelocity(1, 80)
 	p1.SetTempo(120)
 
-	p2 := New()
+	p2 := New(DefaultPatternLength)
 	p2.CopyFrom(p1)
 
 	// Check values are copied
@@ -298,9 +298,55 @@ func TestCopyFrom(t *testing.T) {
 	}
 }
 
+// TestResize tests resizing a pattern
+func TestResize(t *testing.T) {
+	p := New(8)
+	p.SetNote(1, 60)
+
+	// Test expansion
+	err := p.Resize(16)
+	if err != nil {
+		t.Fatalf("Resize(16) unexpected error: %v", err)
+	}
+	if len(p.Steps) != 16 {
+		t.Errorf("Resize(16) length = %d, want 16", len(p.Steps))
+	}
+	if p.Steps[0].Note != 60 {
+		t.Error("Resize(16) did not preserve existing notes")
+	}
+	for i := 8; i < 16; i++ {
+		if !p.Steps[i].IsRest {
+			t.Errorf("Resize(16) step %d should be a rest", i+1)
+		}
+	}
+
+	// Test truncation
+	err = p.Resize(4)
+	if err != nil {
+		t.Fatalf("Resize(4) unexpected error: %v", err)
+	}
+	if len(p.Steps) != 4 {
+		t.Errorf("Resize(4) length = %d, want 4", len(p.Steps))
+	}
+	if p.Steps[0].Note != 60 {
+		t.Error("Resize(4) did not preserve existing notes")
+	}
+
+	// Test invalid size
+	err = p.Resize(0)
+	if err == nil {
+		t.Error("Resize(0) should return an error")
+	}
+	err = p.Resize(-1)
+	if err == nil {
+		t.Error("Resize(-1) should return an error")
+	}
+}
+
+
 // TestSetTempo tests tempo setting
 func TestSetTempo(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// Valid tempo
 	err := p.SetTempo(120)
@@ -338,29 +384,37 @@ func TestSetTempo(t *testing.T) {
 
 // TestDefaultPattern tests that New() creates expected default pattern
 func TestDefaultPattern(t *testing.T) {
-	p := New()
+	p := New(DefaultPatternLength)
 
 	// Check default tempo
 	if p.BPM != 80 {
 		t.Errorf("Default pattern BPM = %d, want 80", p.BPM)
 	}
 
-	// Check expected notes (C3, D#3, G3, C3, F3 on steps 1, 4, 5, 9, 13)
-	expectedNotes := map[int]uint8{
-		0:  48, // Step 1: C3
-		3:  51, // Step 4: D#3
-		4:  55, // Step 5: G3
-		8:  48, // Step 9: C3
-		12: 53, // Step 13: F3
+	// Check expected notes in the new bass pattern
+	expectedNotes := map[int]struct {
+		note     uint8
+		duration int
+	}{
+		0:  {36, 3}, // Step 1:  C2 (long)
+		3:  {43, 1}, // Step 4:  G2 (short accent)
+		4:  {48, 4}, // Step 5:  C3 (sustained)
+		8:  {36, 2}, // Step 9:  C2 (medium)
+		10: {39, 1}, // Step 11: D#2 (passing note)
+		11: {41, 2}, // Step 12: F2 (medium)
+		14: {43, 1}, // Step 15: G2 (staccato)
 	}
 
-	for i := 0; i < NumSteps; i++ {
-		if expectedNote, hasNote := expectedNotes[i]; hasNote {
+	for i := 0; i < DefaultPatternLength; i++ {
+		if expected, hasNote := expectedNotes[i]; hasNote {
 			if p.Steps[i].IsRest {
 				t.Errorf("Default pattern step %d should not be rest", i+1)
 			}
-			if p.Steps[i].Note != expectedNote {
-				t.Errorf("Default pattern step %d note = %d, want %d", i+1, p.Steps[i].Note, expectedNote)
+			if p.Steps[i].Note != expected.note {
+				t.Errorf("Default pattern step %d note = %d, want %d", i+1, p.Steps[i].Note, expected.note)
+			}
+			if p.Steps[i].Duration != expected.duration {
+				t.Errorf("Default pattern step %d duration = %d, want %d", i+1, p.Steps[i].Duration, expected.duration)
 			}
 		} else {
 			if !p.Steps[i].IsRest {
@@ -400,10 +454,10 @@ func TestList(t *testing.T) {
 	}
 
 	// Save a few patterns
-	p1 := New()
+	p1 := New(DefaultPatternLength)
 	p1.Save("pattern_one")
 
-	p2 := New()
+	p2 := New(DefaultPatternLength)
 	p2.Save("pattern_two")
 
 	// List again
@@ -424,7 +478,7 @@ func TestDelete(t *testing.T) {
 	defer os.Chdir(originalDir)
 
 	// Save a pattern
-	p := New()
+	p := New(DefaultPatternLength)
 	p.Save("to_delete")
 
 	// Verify it exists
@@ -486,7 +540,7 @@ func TestSaveAndLoad(t *testing.T) {
 	defer os.Chdir(originalDir)
 
 	// Create a pattern and clear it to start fresh
-	p := New()
+	p := New(DefaultPatternLength)
 	p.Clear() // Clear default pattern first
 	p.SetNote(1, 60) // C4
 	p.SetNote(5, 67) // G4
@@ -554,5 +608,247 @@ func TestSaveAndLoad(t *testing.T) {
 	// Verify it matches
 	if loadedPattern2.BPM != p.BPM {
 		t.Errorf("Loaded pattern BPM = %d, want %d", loadedPattern2.BPM, p.BPM)
+	}
+}
+
+// TestSetNoteWithDuration tests setting notes with duration
+func TestSetNoteWithDuration(t *testing.T) {
+	p := New(DefaultPatternLength)
+
+	// Valid duration
+	err := p.SetNoteWithDuration(1, 60, 4)
+	if err != nil {
+		t.Errorf("SetNoteWithDuration(1, 60, 4) unexpected error: %v", err)
+	}
+	if p.Steps[0].Note != 60 || p.Steps[0].IsRest {
+		t.Error("SetNoteWithDuration(1, 60, 4) did not set note correctly")
+	}
+	if p.Steps[0].Duration != 4 {
+		t.Errorf("SetNoteWithDuration(1, 60, 4) duration = %d, want 4", p.Steps[0].Duration)
+	}
+
+	// Min duration
+	err = p.SetNoteWithDuration(2, 67, 1)
+	if err != nil {
+		t.Errorf("SetNoteWithDuration(2, 67, 1) unexpected error: %v", err)
+	}
+	if p.Steps[1].Duration != 1 {
+		t.Errorf("SetNoteWithDuration(2, 67, 1) duration = %d, want 1", p.Steps[1].Duration)
+	}
+
+	// Max duration
+	err = p.SetNoteWithDuration(3, 72, 16)
+	if err != nil {
+		t.Errorf("SetNoteWithDuration(3, 72, 16) unexpected error: %v", err)
+	}
+	if p.Steps[2].Duration != 16 {
+		t.Errorf("SetNoteWithDuration(3, 72, 16) duration = %d, want 16", p.Steps[2].Duration)
+	}
+
+	// Duration too low
+	err = p.SetNoteWithDuration(1, 60, 0)
+	if err == nil {
+		t.Error("SetNoteWithDuration(1, 60, 0) should return error for duration < 1")
+	}
+
+	// Duration too high
+	err = p.SetNoteWithDuration(1, 60, p.Length()+1)
+	if err == nil {
+		t.Errorf("SetNoteWithDuration(1, 60, %d) should return error for duration > pattern length", p.Length()+1)
+	}
+
+	// Invalid step
+	err = p.SetNoteWithDuration(0, 60, 4)
+	if err == nil {
+		t.Error("SetNoteWithDuration(0, 60, 4) should return error for invalid step")
+	}
+
+	// Invalid note
+	err = p.SetNoteWithDuration(1, 128, 4)
+	if err == nil {
+		t.Error("SetNoteWithDuration(1, 128, 4) should return error for invalid note")
+	}
+}
+
+// TestSetNoteDefaultDuration tests that SetNote uses default duration of 1
+func TestSetNoteDefaultDuration(t *testing.T) {
+	p := New(DefaultPatternLength)
+
+	err := p.SetNote(1, 60)
+	if err != nil {
+		t.Errorf("SetNote(1, 60) unexpected error: %v", err)
+	}
+
+	if p.Steps[0].Duration != 1 {
+		t.Errorf("SetNote should set default duration of 1, got %d", p.Steps[0].Duration)
+	}
+}
+
+// TestDurationPreservesVelocityGate tests that setting duration preserves existing velocity/gate
+func TestDurationPreservesVelocityGate(t *testing.T) {
+	p := New(DefaultPatternLength)
+
+	// Set note with custom velocity and gate
+	p.SetNote(1, 60)
+	p.SetVelocity(1, 120)
+	p.SetGate(1, 70)
+
+	// Now change the duration
+	err := p.SetNoteWithDuration(1, 60, 4)
+	if err != nil {
+		t.Errorf("SetNoteWithDuration unexpected error: %v", err)
+	}
+
+	// Velocity and gate should be preserved
+	if p.Steps[0].Velocity != 120 {
+		t.Errorf("Duration change lost velocity, got %d want 120", p.Steps[0].Velocity)
+	}
+	if p.Steps[0].Gate != 70 {
+		t.Errorf("Duration change lost gate, got %d want 70", p.Steps[0].Gate)
+	}
+	if p.Steps[0].Duration != 4 {
+		t.Errorf("Duration not set correctly, got %d want 4", p.Steps[0].Duration)
+	}
+}
+
+// TestDurationJSONRoundTrip tests that duration is preserved through save/load
+func TestDurationJSONRoundTrip(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Create pattern with various durations
+	p := New(DefaultPatternLength)
+	p.Clear()
+	p.SetNoteWithDuration(1, 60, 1)  // Default duration
+	p.SetNoteWithDuration(5, 67, 4)  // Quarter note
+	p.SetNoteWithDuration(9, 72, 8)  // Half note
+	p.SetNoteWithDuration(13, 55, 16) // Whole note
+
+	// Save it
+	err := p.Save("duration_test")
+	if err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Load it back
+	loaded, err := Load("duration_test")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// Verify durations
+	tests := []struct {
+		step     int
+		note     uint8
+		duration int
+	}{
+		{0, 60, 1},
+		{4, 67, 4},
+		{8, 72, 8},
+		{12, 55, 16},
+	}
+
+	for _, tt := range tests {
+		step := loaded.Steps[tt.step]
+		if step.Note != tt.note {
+			t.Errorf("Step %d note = %d, want %d", tt.step+1, step.Note, tt.note)
+		}
+		if step.Duration != tt.duration {
+			t.Errorf("Step %d duration = %d, want %d", tt.step+1, step.Duration, tt.duration)
+		}
+	}
+}
+
+// TestDurationInToPatternFile tests that duration is omitted from JSON when default
+func TestDurationInToPatternFile(t *testing.T) {
+	p := New(DefaultPatternLength)
+	p.Clear()
+
+	// Step with default duration (should not appear in JSON)
+	p.SetNoteWithDuration(1, 60, 1)
+
+	// Step with non-default duration (should appear in JSON)
+	p.SetNoteWithDuration(2, 67, 4)
+
+	pf := p.ToPatternFile("test")
+
+	// Find steps in pattern file
+	var step1, step2 *PatternStep
+	for i := range pf.Steps {
+		if pf.Steps[i].Step == 1 {
+			step1 = &pf.Steps[i]
+		}
+		if pf.Steps[i].Step == 2 {
+			step2 = &pf.Steps[i]
+		}
+	}
+
+	if step1 == nil || step2 == nil {
+		t.Fatal("Steps not found in PatternFile")
+	}
+
+	// Step 1 should have duration 0 (omitempty, default)
+	if step1.Duration != 0 {
+		t.Errorf("Step with default duration should have Duration=0 in JSON, got %d", step1.Duration)
+	}
+
+	// Step 2 should have duration 4
+	if step2.Duration != 4 {
+		t.Errorf("Step with duration 4 should have Duration=4 in JSON, got %d", step2.Duration)
+	}
+}
+
+// TestDurationInClone tests that Clone preserves duration
+func TestDurationInClone(t *testing.T) {
+	p := New(DefaultPatternLength)
+	p.SetNoteWithDuration(1, 60, 8)
+	p.SetNoteWithDuration(5, 67, 4)
+
+	clone := p.Clone()
+
+	if clone.Steps[0].Duration != 8 {
+		t.Errorf("Clone step 1 duration = %d, want 8", clone.Steps[0].Duration)
+	}
+	if clone.Steps[4].Duration != 4 {
+		t.Errorf("Clone step 5 duration = %d, want 4", clone.Steps[4].Duration)
+	}
+
+	// Modify clone and ensure original is unchanged
+	clone.SetNoteWithDuration(1, 60, 2)
+	if p.Steps[0].Duration != 8 {
+		t.Error("Modifying clone duration affected original")
+	}
+}
+
+// TestDurationInCopyFrom tests that CopyFrom preserves duration
+func TestDurationInCopyFrom(t *testing.T) {
+	p1 := New(DefaultPatternLength)
+	p1.SetNoteWithDuration(1, 60, 8)
+	p1.SetNoteWithDuration(5, 67, 4)
+
+	p2 := New(DefaultPatternLength)
+	p2.CopyFrom(p1)
+
+	if p2.Steps[0].Duration != 8 {
+		t.Errorf("CopyFrom step 1 duration = %d, want 8", p2.Steps[0].Duration)
+	}
+	if p2.Steps[4].Duration != 4 {
+		t.Errorf("CopyFrom step 5 duration = %d, want 4", p2.Steps[4].Duration)
+	}
+}
+
+// TestDefaultPatternHasDuration tests that default pattern has duration field set correctly
+func TestDefaultPatternHasDuration(t *testing.T) {
+	p := New(DefaultPatternLength)
+
+	// Just verify that all steps have a valid duration (1-16)
+	for i := 0; i < DefaultPatternLength; i++ {
+		if !p.Steps[i].IsRest {
+			if p.Steps[i].Duration < 1 || p.Steps[i].Duration > 16 {
+				t.Errorf("Default pattern step %d duration = %d, should be 1-16", i+1, p.Steps[i].Duration)
+			}
+		}
 	}
 }

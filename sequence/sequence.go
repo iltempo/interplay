@@ -6,9 +6,8 @@ import (
 	"sync"
 )
 
-const (
-	NumSteps = 16 // 1 bar = 16 sixteenth notes
-)
+// DefaultPatternLength is the default length for a new pattern.
+const DefaultPatternLength = 16
 
 // Step represents a single step in the sequence
 type Step struct {
@@ -16,50 +15,72 @@ type Step struct {
 	IsRest   bool  // true if this step is a rest/silence
 	Velocity uint8 // MIDI velocity (0-127), default 100
 	Gate     int   // Gate length as percentage (1-100), default 90
+	Duration int   // Note duration in steps (1-16), default 1
 }
 
-// Pattern represents a 16-step sequence pattern
+// Pattern represents a musical sequence pattern
 type Pattern struct {
-	Steps [NumSteps]Step
+	Steps []Step // A slice of steps, allowing variable length
 	BPM   int
 	mu    sync.RWMutex // protects concurrent access
 }
 
-// New creates a new pattern with the default starting pattern:
-// Melodic rhythmic pattern in C minor
-func New() *Pattern {
+// New creates a new pattern with a default length and starting sequence.
+func New(length int) *Pattern {
+	if length <= 0 {
+		length = DefaultPatternLength
+	}
+
 	p := &Pattern{
-		BPM: 80, // default tempo
+		BPM:   80, // default tempo
+		Steps: make([]Step, length),
 	}
 
 	// Initialize all steps as rests with defaults
-	for i := 0; i < NumSteps; i++ {
-		p.Steps[i] = Step{IsRest: true, Velocity: 100, Gate: 90}
+	for i := range p.Steps {
+		p.Steps[i] = Step{IsRest: true, Velocity: 100, Gate: 90, Duration: 1}
 	}
 
-	// Melodic pattern with dynamic expression
-	p.Steps[0] = Step{Note: 48, IsRest: false, Velocity: 110, Gate: 80}  // Step 1:  C3
-	p.Steps[3] = Step{Note: 51, IsRest: false, Velocity: 90, Gate: 60}   // Step 4:  D#3
-	p.Steps[4] = Step{Note: 55, IsRest: false, Velocity: 120, Gate: 90}  // Step 5:  G3
-	p.Steps[8] = Step{Note: 48, IsRest: false, Velocity: 100, Gate: 80}  // Step 9:  C3
-	p.Steps[12] = Step{Note: 53, IsRest: false, Velocity: 110, Gate: 70} // Step 13: F3
+	// Apply the default melodic pattern if the length is 16
+	if length == 16 {
+		p.applyDefault16StepPattern()
+	}
 
 	return p
 }
 
-// SetNote sets a specific step to play a note
-// stepNum: 1-16 (user-facing, converts to 0-15 internally)
+// applyDefault16StepPattern populates the sequence with a default melodic bass pattern.
+// This is called when a new 16-step pattern is created.
+func (p *Pattern) applyDefault16StepPattern() {
+	// Melodic bass pattern in C minor with varied durations and dynamics
+	// Creates a grooving, atmospheric bass line with long and short notes
+	p.Steps[0] = Step{Note: 36, IsRest: false, Velocity: 120, Gate: 85, Duration: 3}  // Step 1:  C2 (long)
+	p.Steps[3] = Step{Note: 43, IsRest: false, Velocity: 95, Gate: 60, Duration: 1}   // Step 4:  G2 (short accent)
+	p.Steps[4] = Step{Note: 48, IsRest: false, Velocity: 110, Gate: 90, Duration: 4}  // Step 5:  C3 (sustained)
+	p.Steps[8] = Step{Note: 36, IsRest: false, Velocity: 115, Gate: 80, Duration: 2}  // Step 9:  C2 (medium)
+	p.Steps[10] = Step{Note: 39, IsRest: false, Velocity: 100, Gate: 70, Duration: 1} // Step 11: D#2 (passing note)
+	p.Steps[11] = Step{Note: 41, IsRest: false, Velocity: 105, Gate: 75, Duration: 2} // Step 12: F2 (medium)
+	p.Steps[14] = Step{Note: 43, IsRest: false, Velocity: 90, Gate: 50, Duration: 1}  // Step 15: G2 (staccato)
+}
+
+// SetNoteWithDuration sets a specific step to play a note with a given duration
+// stepNum: 1-based (user-facing)
 // note: MIDI note number (0-127)
-func (p *Pattern) SetNote(stepNum int, note uint8) error {
-	if stepNum < 1 || stepNum > NumSteps {
-		return fmt.Errorf("step must be 1-%d", NumSteps)
+// duration: number of steps the note should last
+func (p *Pattern) SetNoteWithDuration(stepNum int, note uint8, duration int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return fmt.Errorf("step must be 1-%d", numSteps)
 	}
 	if note > 127 {
 		return fmt.Errorf("note must be 0-127")
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	if duration < 1 || duration > numSteps {
+		return fmt.Errorf("duration must be 1-%d steps", numSteps)
+	}
 
 	// Preserve existing velocity/gate if step already has values, otherwise use defaults
 	existingStep := p.Steps[stepNum-1]
@@ -72,34 +93,49 @@ func (p *Pattern) SetNote(stepNum int, note uint8) error {
 		gate = 90
 	}
 
-	p.Steps[stepNum-1] = Step{Note: note, IsRest: false, Velocity: velocity, Gate: gate}
+	p.Steps[stepNum-1] = Step{
+		Note:     note,
+		IsRest:   false,
+		Velocity: velocity,
+		Gate:     gate,
+		Duration: duration,
+	}
 	return nil
+}
+
+// SetNote sets a specific step to play a note with default duration (1 step)
+// stepNum: 1-based (user-facing)
+// note: MIDI note number (0-127)
+func (p *Pattern) SetNote(stepNum int, note uint8) error {
+	return p.SetNoteWithDuration(stepNum, note, 1)
 }
 
 // SetRest sets a specific step to be silent
 func (p *Pattern) SetRest(stepNum int) error {
-	if stepNum < 1 || stepNum > NumSteps {
-		return fmt.Errorf("step must be 1-%d", NumSteps)
-	}
-
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.Steps[stepNum-1] = Step{IsRest: true, Velocity: 100, Gate: 90}
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return fmt.Errorf("step must be 1-%d", numSteps)
+	}
+
+	p.Steps[stepNum-1] = Step{IsRest: true, Velocity: 100, Gate: 90, Duration: 1}
 	return nil
 }
 
 // SetVelocity sets the velocity for a specific step
 func (p *Pattern) SetVelocity(stepNum int, velocity uint8) error {
-	if stepNum < 1 || stepNum > NumSteps {
-		return fmt.Errorf("step must be 1-%d", NumSteps)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return fmt.Errorf("step must be 1-%d", numSteps)
 	}
 	if velocity > 127 {
 		return fmt.Errorf("velocity must be 0-127")
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	p.Steps[stepNum-1].Velocity = velocity
 	return nil
@@ -107,15 +143,16 @@ func (p *Pattern) SetVelocity(stepNum int, velocity uint8) error {
 
 // SetGate sets the gate length (as percentage) for a specific step
 func (p *Pattern) SetGate(stepNum int, gate int) error {
-	if stepNum < 1 || stepNum > NumSteps {
-		return fmt.Errorf("step must be 1-%d", NumSteps)
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return fmt.Errorf("step must be 1-%d", numSteps)
 	}
 	if gate < 1 || gate > 100 {
 		return fmt.Errorf("gate must be 1-100 (percentage)")
 	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
 
 	p.Steps[stepNum-1].Gate = gate
 	return nil
@@ -126,8 +163,8 @@ func (p *Pattern) Clear() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	for i := 0; i < NumSteps; i++ {
-		p.Steps[i] = Step{IsRest: true}
+	for i := range p.Steps {
+		p.Steps[i] = Step{IsRest: true, Velocity: 100, Gate: 90, Duration: 1}
 	}
 }
 
@@ -146,12 +183,13 @@ func (p *Pattern) SetTempo(bpm int) error {
 
 // GetStep returns a copy of a specific step (thread-safe read)
 func (p *Pattern) GetStep(stepNum int) (Step, error) {
-	if stepNum < 1 || stepNum > NumSteps {
-		return Step{}, fmt.Errorf("step must be 1-%d", NumSteps)
-	}
-
 	p.mu.RLock()
 	defer p.mu.RUnlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return Step{}, fmt.Errorf("step must be 1-%d", numSteps)
+	}
 
 	return p.Steps[stepNum-1], nil
 }
@@ -163,6 +201,13 @@ func (p *Pattern) GetBPM() int {
 	return p.BPM
 }
 
+// Length returns the number of steps in the pattern (thread-safe).
+func (p *Pattern) Length() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return len(p.Steps)
+}
+
 // Clone creates a deep copy of the pattern (for swapping current/next)
 func (p *Pattern) Clone() *Pattern {
 	p.mu.RLock()
@@ -170,8 +215,9 @@ func (p *Pattern) Clone() *Pattern {
 
 	clone := &Pattern{
 		BPM:   p.BPM,
-		Steps: p.Steps, // array copy
+		Steps: make([]Step, len(p.Steps)),
 	}
+	copy(clone.Steps, p.Steps) // Slices require an explicit copy
 	return clone
 }
 
@@ -183,8 +229,41 @@ func (p *Pattern) CopyFrom(other *Pattern) {
 	other.mu.RLock()
 	defer other.mu.RUnlock()
 
-	p.Steps = other.Steps
 	p.BPM = other.BPM
+	p.Steps = make([]Step, len(other.Steps))
+	copy(p.Steps, other.Steps)
+}
+
+// Resize changes the number of steps in the pattern.
+// If the new length is greater, new steps are added as rests.
+// If the new length is smaller, the pattern is truncated.
+func (p *Pattern) Resize(newLength int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if newLength <= 0 {
+		return fmt.Errorf("length must be positive")
+	}
+
+	currentLength := len(p.Steps)
+	if newLength == currentLength {
+		return nil // No change needed
+	}
+
+	newSteps := make([]Step, newLength)
+
+	// Copy existing steps
+	copy(newSteps, p.Steps)
+
+	// If expanding, initialize new steps as rests
+	if newLength > currentLength {
+		for i := currentLength; i < newLength; i++ {
+			newSteps[i] = Step{IsRest: true, Velocity: 100, Gate: 90, Duration: 1}
+		}
+	}
+
+	p.Steps = newSteps
+	return nil
 }
 
 // String returns a human-readable representation of the pattern
@@ -193,17 +272,20 @@ func (p *Pattern) String() string {
 	defer p.mu.RUnlock()
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Tempo: %d BPM\n", p.BPM))
+	sb.WriteString(fmt.Sprintf("Tempo: %d BPM, Length: %d steps\n", p.BPM, len(p.Steps)))
 	sb.WriteString("Steps:\n")
 
-	for i := 0; i < NumSteps; i++ {
-		step := p.Steps[i]
+	for i, step := range p.Steps {
 		stepNum := i + 1
 		if step.IsRest {
 			sb.WriteString(fmt.Sprintf("  %2d: rest\n", stepNum))
 		} else {
 			noteName := midiToNoteName(step.Note)
-			sb.WriteString(fmt.Sprintf("  %2d: %s (vel:%d gate:%d%%)\n", stepNum, noteName, step.Velocity, step.Gate))
+			if step.Duration > 1 {
+				sb.WriteString(fmt.Sprintf("  %2d: %s (vel:%d gate:%d%% dur:%d)\n", stepNum, noteName, step.Velocity, step.Gate, step.Duration))
+			} else {
+				sb.WriteString(fmt.Sprintf("  %2d: %s (vel:%d gate:%d%%)\n", stepNum, noteName, step.Velocity, step.Gate))
+			}
 		}
 	}
 

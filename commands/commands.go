@@ -67,6 +67,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleVelocity(parts)
 	case "gate":
 		return h.handleGate(parts)
+	case "length":
+		return h.handleLength(parts)
 	case "show":
 		return h.handleShow(parts)
 	case "verbose":
@@ -90,10 +92,10 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 	}
 }
 
-// handleSet: set <step> <note>
+// handleSet: set <step> <note> [dur:<steps>]
 func (h *Handler) handleSet(parts []string) error {
-	if len(parts) != 3 {
-		return fmt.Errorf("usage: set <step> <note> (e.g., 'set 1 C4')")
+	if len(parts) < 3 || len(parts) > 4 {
+		return fmt.Errorf("usage: set <step> <note> [dur:<steps>] (e.g., 'set 1 C4' or 'set 1 C4 dur:4')")
 	}
 
 	stepNum, err := strconv.Atoi(parts[1])
@@ -107,12 +109,37 @@ func (h *Handler) handleSet(parts []string) error {
 		return err
 	}
 
-	err = h.pattern.SetNote(stepNum, midiNote)
+	// Get pattern length for validation
+	patternLen := h.pattern.Length()
+
+	// Check for optional duration parameter
+	duration := 1 // default
+	if len(parts) == 4 {
+		if strings.HasPrefix(parts[3], "dur:") {
+			durStr := strings.TrimPrefix(parts[3], "dur:")
+			duration, err = strconv.Atoi(durStr)
+			if err != nil {
+				return fmt.Errorf("invalid duration: %s", durStr)
+			}
+			if duration < 1 || duration > patternLen {
+				return fmt.Errorf("duration must be 1-%d steps", patternLen)
+			}
+		} else {
+			return fmt.Errorf("unknown parameter: %s (expected dur:<steps>)", parts[3])
+		}
+	}
+
+	// Use SetNoteWithDuration to support duration
+	err = h.pattern.SetNoteWithDuration(stepNum, midiNote, duration)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Set step %d to %s (MIDI %d)\n", stepNum, noteName, midiNote)
+	if duration > 1 {
+		fmt.Printf("Set step %d to %s (MIDI %d, duration: %d steps)\n", stepNum, noteName, midiNote, duration)
+	} else {
+		fmt.Printf("Set step %d to %s (MIDI %d)\n", stepNum, noteName, midiNote)
+	}
 	return nil
 }
 
@@ -153,13 +180,13 @@ func (h *Handler) handleReset(parts []string) error {
 		return fmt.Errorf("usage: reset")
 	}
 
-	// Create a new default pattern
-	defaultPattern := sequence.New()
+	// Create a new default pattern (with default length)
+	defaultPattern := sequence.New(sequence.DefaultPatternLength)
 
 	// Copy it into the current pattern
 	h.pattern.CopyFrom(defaultPattern)
 
-	fmt.Println("Reset to default pattern")
+	fmt.Println("Reset to default 16-step pattern")
 	return nil
 }
 
@@ -279,6 +306,26 @@ func (h *Handler) handleGate(parts []string) error {
 	return nil
 }
 
+// handleLength: length <steps>
+func (h *Handler) handleLength(parts []string) error {
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: length <steps> (e.g., 'length 32')")
+	}
+
+	length, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid length: %s", parts[1])
+	}
+
+	err = h.pattern.Resize(length)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Pattern length set to %d steps\n", length)
+	return nil
+}
+
 // handleSave: save <name>
 func (h *Handler) handleSave(parts []string) error {
 	if len(parts) < 2 {
@@ -314,7 +361,7 @@ func (h *Handler) handleLoad(parts []string) error {
 	// Copy loaded pattern data into current pattern
 	h.pattern.CopyFrom(loadedPattern)
 
-	fmt.Printf("Loaded pattern '%s' (Tempo: %d BPM)\n", name, loadedPattern.BPM)
+	fmt.Printf("Loaded pattern '%s' (Tempo: %d BPM, Length: %d steps)\n", name, loadedPattern.BPM, loadedPattern.Length())
 	return nil
 }
 
@@ -417,11 +464,8 @@ func (h *Handler) handleAI(parts []string) error {
 		}
 
 		// Not a known command - send to AI
-		// Get current pattern state
-		currentPattern := h.pattern.String()
-
-		// Send to AI
-		response, err := h.aiClient.Session(ctx, input, currentPattern)
+		// Send the entire pattern object to the AI session
+		response, err := h.aiClient.Session(ctx, input, h.pattern)
 		if err != nil {
 			fmt.Printf("AI error: %v\n", err)
 			continue
@@ -455,7 +499,7 @@ func (h *Handler) isKnownCommand(input string) bool {
 
 	cmd := strings.ToLower(parts[0])
 	knownCommands := []string{
-		"set", "rest", "clear", "reset", "tempo", "velocity", "gate",
+		"set", "rest", "clear", "reset", "tempo", "velocity", "gate", "length",
 		"show", "verbose", "save", "load", "list", "delete",
 		"clear-chat", "help", "quit",
 	}
@@ -515,13 +559,18 @@ func (h *Handler) handleHelp(parts []string) error {
 		aiStatus = "enabled"
 	}
 
+	patternLen := h.pattern.Length()
+
 	helpText := fmt.Sprintf(`Available commands:
-  set <step> <note>       Set a step to play a note (e.g., 'set 1 C4')
+  set <step> <note> [dur:<steps>]
+                          Set a step to play a note (e.g., 'set 1 C4')
+                          Optional dur: specifies note duration in steps (e.g., 'set 1 C4 dur:4')
   rest <step>             Set a step to rest/silence (e.g., 'rest 1')
   velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
   gate <step> <percent>   Set step gate length 1-100%% (e.g., 'gate 1 50')
+  length <steps>          Set pattern length (e.g., 'length 32')
   clear                   Clear all steps to rests
-  reset                   Reset to default pattern
+  reset                   Reset to default 16-step pattern
   tempo <bpm>             Change tempo (e.g., 'tempo 120')
   show                    Display current pattern
   verbose [on|off]        Toggle or set verbose step output
@@ -538,9 +587,10 @@ func (h *Handler) handleHelp(parts []string) error {
   quit                    Exit the program
   <enter>                 Show current pattern (same as 'show')
 
-Notes: C4, D#5, Bb3, etc. | Steps: 1-16 | Default velocity: 100 | Default gate: 90%%
+Notes: C4, D#5, Bb3, etc. | Steps: 1-%d | Duration: 1-%d steps (default 1)
+Default velocity: 100 | Default gate: 90%%
 Patterns saved in 'patterns/' directory as JSON files.
-AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus)
+AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus, patternLen, patternLen)
 
 	fmt.Println(helpText)
 	return nil

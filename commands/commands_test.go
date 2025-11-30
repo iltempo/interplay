@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/iltempo/interplay/sequence"
@@ -21,7 +22,7 @@ func (m *mockVerboseController) IsVerbose() bool {
 
 // TestHandleSet tests the set command
 func TestHandleSet(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Valid set command
@@ -53,15 +54,15 @@ func TestHandleSet(t *testing.T) {
 	}
 
 	// Invalid: step out of range
-	err = handler.ProcessCommand("set 17 C4")
+	err = handler.ProcessCommand(fmt.Sprintf("set %d C4", pattern.Length()+1))
 	if err == nil {
-		t.Error("ProcessCommand('set 17 C4') should return error")
+		t.Errorf("ProcessCommand('set %d C4') should return error", pattern.Length()+1)
 	}
 }
 
 // TestHandleRest tests the rest command
 func TestHandleRest(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Set a note first
@@ -92,7 +93,7 @@ func TestHandleRest(t *testing.T) {
 
 // TestHandleClear tests the clear command
 func TestHandleClear(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Set some notes
@@ -106,7 +107,7 @@ func TestHandleClear(t *testing.T) {
 	}
 
 	// Check all steps are rests
-	for i := 1; i <= sequence.NumSteps; i++ {
+	for i := 1; i <= pattern.Length(); i++ {
 		step, _ := pattern.GetStep(i)
 		if !step.IsRest {
 			t.Errorf("After clear, step %d is not a rest", i)
@@ -116,7 +117,7 @@ func TestHandleClear(t *testing.T) {
 
 // TestHandleReset tests the reset command
 func TestHandleReset(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Clear the pattern first
@@ -128,16 +129,16 @@ func TestHandleReset(t *testing.T) {
 		t.Errorf("ProcessCommand('reset') unexpected error: %v", err)
 	}
 
-	// Check that pattern has the default notes
+	// Check that pattern has the default notes (new pattern starts with C2)
 	step1, _ := pattern.GetStep(1)
-	if step1.IsRest || step1.Note != 48 {
-		t.Error("After reset, step 1 should be C3")
+	if step1.IsRest || step1.Note != 36 {
+		t.Errorf("After reset, step 1 should be C2 (note 36), got note %d", step1.Note)
 	}
 }
 
 // TestHandleVelocity tests the velocity command
 func TestHandleVelocity(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Valid velocity
@@ -171,7 +172,7 @@ func TestHandleVelocity(t *testing.T) {
 
 // TestHandleGate tests the gate command
 func TestHandleGate(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Valid gate
@@ -203,9 +204,84 @@ func TestHandleGate(t *testing.T) {
 	}
 }
 
+// TestHandleLength tests the length command
+func TestHandleLength(t *testing.T) {
+	initialLength := 4
+	pattern := sequence.New(initialLength)
+	handler := New(pattern, &mockVerboseController{})
+
+	// Set a note in the initial pattern
+	pattern.SetNote(1, 60) // C4
+	step1, _ := pattern.GetStep(1)
+	if step1.Note != 60 {
+		t.Errorf("Initial note not set correctly, got %d", step1.Note)
+	}
+
+	// Test valid length change (expansion)
+	newLength := 8
+	err := handler.ProcessCommand(fmt.Sprintf("length %d", newLength))
+	if err != nil {
+		t.Errorf("ProcessCommand('length %d') unexpected error: %v", newLength, err)
+	}
+	if pattern.Length() != newLength {
+		t.Errorf("Pattern length after resize = %d, want %d", pattern.Length(), newLength)
+	}
+	// Check if existing note is preserved
+	step1AfterResize, _ := pattern.GetStep(1)
+	if step1AfterResize.Note != 60 {
+		t.Errorf("Existing note not preserved after expansion, got %d", step1AfterResize.Note)
+	}
+	// Check if new steps are rests
+	for i := initialLength; i < newLength; i++ {
+		step, _ := pattern.GetStep(i + 1) // 1-indexed
+		if !step.IsRest {
+			t.Errorf("New step %d is not a rest after expansion", i+1)
+		}
+	}
+
+	// Test valid length change (truncation)
+	newLength = 2
+	err = handler.ProcessCommand(fmt.Sprintf("length %d", newLength))
+	if err != nil {
+		t.Errorf("ProcessCommand('length %d') unexpected error: %v", newLength, err)
+	}
+	if pattern.Length() != newLength {
+		t.Errorf("Pattern length after truncation = %d, want %d", pattern.Length(), newLength)
+	}
+	// Check if existing note is still preserved
+	step1AfterTruncation, _ := pattern.GetStep(1)
+	if step1AfterTruncation.Note != 60 {
+		t.Errorf("Existing note not preserved after truncation, got %d", step1AfterTruncation.Note)
+	}
+
+	// Invalid: too few arguments
+	err = handler.ProcessCommand("length")
+	if err == nil {
+		t.Error("ProcessCommand('length') with no arguments should return error")
+	}
+
+	// Invalid: non-numeric length
+	err = handler.ProcessCommand("length abc")
+	if err == nil {
+		t.Error("ProcessCommand('length abc') should return error")
+	}
+
+	// Invalid: zero length
+	err = handler.ProcessCommand("length 0")
+	if err == nil {
+		t.Error("ProcessCommand('length 0') should return error")
+	}
+
+	// Invalid: negative length
+	err = handler.ProcessCommand("length -5")
+	if err == nil {
+		t.Error("ProcessCommand('length -5') should return error")
+	}
+}
+
 // TestHandleTempo tests the tempo command
 func TestHandleTempo(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Valid tempo
@@ -238,7 +314,7 @@ func TestHandleTempo(t *testing.T) {
 
 // TestUnknownCommand tests handling of unknown commands
 func TestUnknownCommand(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	err := handler.ProcessCommand("unknowncommand")
@@ -249,7 +325,7 @@ func TestUnknownCommand(t *testing.T) {
 
 // TestEmptyCommand tests handling of empty input
 func TestEmptyCommand(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Empty string should show pattern (no error)
@@ -261,7 +337,7 @@ func TestEmptyCommand(t *testing.T) {
 
 // TestCommandCaseSensitivity tests that commands are case-insensitive
 func TestCommandCaseSensitivity(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Test uppercase
@@ -282,7 +358,7 @@ func TestCommandCaseSensitivity(t *testing.T) {
 
 // TestVelocityPreservation tests that velocity is preserved when changing notes
 func TestVelocityPreservation(t *testing.T) {
-	pattern := sequence.New()
+	pattern := sequence.New(sequence.DefaultPatternLength)
 	handler := New(pattern, &mockVerboseController{})
 
 	// Set note with velocity

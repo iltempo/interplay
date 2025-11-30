@@ -19,12 +19,14 @@ type PatternStep struct {
 	Note     string `json:"note"`
 	Velocity uint8  `json:"velocity,omitempty"`
 	Gate     int    `json:"gate,omitempty"`
+	Duration int    `json:"duration,omitempty"`
 }
 
 // PatternFile represents the JSON structure for saving/loading patterns
 type PatternFile struct {
 	Name      string        `json:"name"`
 	Tempo     int           `json:"tempo"`
+	Length    int           `json:"length"`
 	Steps     []PatternStep `json:"steps"`
 	CreatedAt string        `json:"created_at,omitempty"`
 }
@@ -34,27 +36,32 @@ func (p *Pattern) ToPatternFile(name string) *PatternFile {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
+	patternLen := len(p.Steps)
 	pf := &PatternFile{
 		Name:      name,
 		Tempo:     p.BPM,
-		Steps:     make([]PatternStep, 0, NumSteps),
+		Length:    patternLen,
+		Steps:     make([]PatternStep, 0, patternLen),
 		CreatedAt: time.Now().Format(time.RFC3339),
 	}
 
 	// Only include non-rest steps
-	for i := 0; i < NumSteps; i++ {
+	for i := 0; i < patternLen; i++ {
 		if !p.Steps[i].IsRest {
 			step := p.Steps[i]
 			ps := PatternStep{
 				Step: i + 1, // 1-indexed for user
 				Note: midiToNoteName(step.Note),
 			}
-			// Only include velocity/gate if non-default
+			// Only include velocity/gate/duration if non-default
 			if step.Velocity != 100 {
 				ps.Velocity = step.Velocity
 			}
 			if step.Gate != 90 {
 				ps.Gate = step.Gate
+			}
+			if step.Duration != 1 {
+				ps.Duration = step.Duration
 			}
 			pf.Steps = append(pf.Steps, ps)
 		}
@@ -65,19 +72,24 @@ func (p *Pattern) ToPatternFile(name string) *PatternFile {
 
 // FromPatternFile creates a new Pattern from the JSON format
 func FromPatternFile(pf *PatternFile) (*Pattern, error) {
-	p := &Pattern{
-		BPM: pf.Tempo,
+	// Use the length from the file, or default if it's missing/invalid
+	length := pf.Length
+	if length <= 0 {
+		// For backward compatibility with old files that have no length field,
+		// we can try to infer it, or just default to 16.
+		// For now, let's just use the default.
+		length = DefaultPatternLength
 	}
 
-	// Initialize all steps as rests
-	for i := 0; i < NumSteps; i++ {
-		p.Steps[i] = Step{IsRest: true}
-	}
+	p := New(length)
+	p.BPM = pf.Tempo
 
 	// Set notes from file
 	for _, ps := range pf.Steps {
-		if ps.Step < 1 || ps.Step > NumSteps {
-			return nil, fmt.Errorf("invalid step number: %d", ps.Step)
+		if ps.Step < 1 || ps.Step > length {
+			// Don't error out, just log it. This makes it robust to length changes.
+			fmt.Printf("warning: step %d in pattern '%s' is out of bounds (length is %d), skipping\n", ps.Step, pf.Name, length)
+			continue
 		}
 
 		midiNote, err := NoteNameToMIDI(ps.Note)
@@ -94,12 +106,17 @@ func FromPatternFile(pf *PatternFile) (*Pattern, error) {
 		if gate == 0 {
 			gate = 90
 		}
+		duration := ps.Duration
+		if duration == 0 {
+			duration = 1
+		}
 
 		p.Steps[ps.Step-1] = Step{
 			Note:     midiNote,
 			IsRest:   false,
 			Velocity: velocity,
 			Gate:     gate,
+			Duration: duration,
 		}
 	}
 

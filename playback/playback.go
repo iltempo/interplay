@@ -71,42 +71,84 @@ func (e *Engine) playbackLoop() {
 	const channel = 0 // MIDI channel 1 (0-indexed)
 
 	for {
-		// Get current pattern (snapshot for this loop iteration)
+		// Atomically get a clone of the current pattern for this loop iteration.
+		// This is the most important part of the concurrency model.
+		// The playback loop operates on a completely isolated copy of the pattern.
 		e.mu.RLock()
-		pattern := e.currentPattern
-		bpm := pattern.GetBPM()
+		pattern := e.currentPattern.Clone()
 		e.mu.RUnlock()
+
+		bpm := pattern.BPM
+		numSteps := len(pattern.Steps)
 
 		// Calculate step duration in milliseconds
 		// At 80 BPM: quarter note = 750ms, sixteenth note = 187.5ms
 		stepDurationMs := (60_000.0 / float64(bpm)) / 4.0
 		stepDuration := time.Duration(stepDurationMs * float64(time.Millisecond))
 
-		// Play all 16 steps
-		for stepIdx := 0; stepIdx < sequence.NumSteps; stepIdx++ {
+		// Track active notes with countdown timers
+		// map: note number -> remaining steps
+		activeNotes := make(map[uint8]int)
+
+		// Play all steps in the pattern
+		for stepIdx := 0; stepIdx < numSteps; stepIdx++ {
 			// Check for stop signal
 			select {
 			case <-e.stopChan:
+				// Turn off all active notes before stopping
+				for note := range activeNotes {
+					e.midiOut.NoteOff(channel, note)
+				}
 				return
 			default:
 			}
 
 			stepStart := time.Now()
+
+			// Decrement active note counters and send NoteOff if they expire
+			for note, stepsRemaining := range activeNotes {
+				if stepsRemaining-1 <= 0 {
+					err := e.midiOut.NoteOff(channel, note)
+					if err != nil {
+						fmt.Printf("Error sending Note Off: %v\n", err)
+					}
+					delete(activeNotes, note)
+				} else {
+					activeNotes[note] = stepsRemaining - 1
+				}
+			}
+
+			// Get the current step from our cloned pattern
 			step := pattern.Steps[stepIdx]
 
 			if !step.IsRest {
-				// Use per-step velocity
 				velocity := step.Velocity
 				if velocity == 0 {
-					velocity = 100 // default if not set
+					velocity = 100 // default
 				}
-
-				// Calculate gate duration based on step's gate percentage
 				gate := step.Gate
 				if gate == 0 {
-					gate = 90 // default if not set
+					gate = 90 // default
 				}
-				gateDuration := time.Duration(float64(stepDuration) * float64(gate) / 100.0)
+				duration := step.Duration
+				if duration < 1 {
+					duration = 1 // default
+				}
+
+				// Calculate how many steps the note should sound for, based on gate
+				gateSteps := int(float64(duration) * float64(gate) / 100.0)
+				if gateSteps < 1 {
+					gateSteps = 1 // Note should sound for at least one step
+				}
+
+				// If this note is already playing, send a NoteOff first (re-trigger)
+				if _, playing := activeNotes[step.Note]; playing {
+					err := e.midiOut.NoteOff(channel, step.Note)
+					if err != nil {
+						fmt.Printf("Error sending Note Off (retrigger): %v\n", err)
+					}
+					delete(activeNotes, step.Note)
+				}
 
 				// Send Note On
 				err := e.midiOut.NoteOn(channel, step.Note, velocity)
@@ -114,25 +156,22 @@ func (e *Engine) playbackLoop() {
 					fmt.Printf("Error sending Note On: %v\n", err)
 				}
 
-				// Print visual feedback (only if verbose)
 				if e.IsVerbose() {
 					noteName := midiToNoteName(step.Note)
-					fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%%)\n", stepIdx+1, noteName, velocity, gate)
+					if duration > 1 {
+						fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%% dur:%d)\n", stepIdx+1, noteName, velocity, gate, duration)
+					} else {
+						fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%%)\n", stepIdx+1, noteName, velocity, gate)
+					}
 				}
 
-				// Schedule Note Off after gate duration
-				time.AfterFunc(gateDuration, func() {
-					err := e.midiOut.NoteOff(channel, step.Note)
-					if err != nil {
-						fmt.Printf("Error sending Note Off: %v\n", err)
-					}
-				})
+				// Add to active notes map to track its duration
+				activeNotes[step.Note] = gateSteps
 			} else if e.IsVerbose() {
-				// Rest - print indicator only if verbose
 				fmt.Printf("  Step %2d: ---\n", stepIdx+1)
 			}
 
-			// Wait until next step
+			// Wait for the remainder of the step duration
 			elapsed := time.Since(stepStart)
 			remaining := stepDuration - elapsed
 			if remaining > 0 {
@@ -140,7 +179,19 @@ func (e *Engine) playbackLoop() {
 			}
 		}
 
-		// Loop boundary: swap current ← next
+		// Loop boundary: turn off all remaining active notes (clean cut)
+		for note := range activeNotes {
+			err := e.midiOut.NoteOff(channel, note)
+			if err != nil {
+				fmt.Printf("Error sending Note Off (loop boundary): %v\n", err)
+			}
+		}
+
+		// Swap current ← next. This is the other key part of the concurrency model.
+		// We grab the lock, and replace the current pattern with a CLONE of the
+		// next pattern. The command handler goroutine can continue to modify the
+		// `nextPattern` without interfering with the `currentPattern` that the
+		// next loop iteration will use.
 		e.mu.Lock()
 		e.currentPattern = e.nextPattern.Clone()
 		e.mu.Unlock()
