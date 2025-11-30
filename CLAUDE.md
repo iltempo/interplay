@@ -177,8 +177,8 @@ This isolation allows easy replacement: when AI is integrated, delete `commands/
 - ✅ Pattern library (save/recall different patterns)
 - ✅ Variable pattern lengths (via `length` command)
 - ✅ Humanization (velocity, timing, gate randomization)
-- 🔄 More sophisticated commands (transpose, randomize, etc.) - Future
-- 🔄 Better visual feedback (maybe ASCII sequencer grid) - Future
+
+Note: Additional musical commands (transpose, randomize, etc.) can be handled via AI mode, so no need for dedicated commands.
 
 **Pattern Persistence:**
 - Format: JSON (human-readable, extensible, easy to share)
