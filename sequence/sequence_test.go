@@ -1,6 +1,10 @@
 package sequence
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // TestNoteNameToMIDI tests note name to MIDI number conversion
 func TestNoteNameToMIDI(t *testing.T) {
@@ -363,5 +367,192 @@ func TestDefaultPattern(t *testing.T) {
 				t.Errorf("Default pattern step %d should be rest", i+1)
 			}
 		}
+	}
+}
+
+// TestLoadNonExistent tests loading a pattern that doesn't exist
+func TestLoadNonExistent(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	_, err := Load("nonexistent")
+	if err == nil {
+		t.Error("Load() of non-existent pattern should return error")
+	}
+}
+
+// TestList tests listing saved patterns
+func TestList(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Initially should be empty (or return empty list if dir doesn't exist)
+	patterns, err := List()
+	if err != nil {
+		t.Errorf("List() unexpected error: %v", err)
+	}
+	if len(patterns) != 0 {
+		t.Errorf("List() should return empty list initially, got %d patterns", len(patterns))
+	}
+
+	// Save a few patterns
+	p1 := New()
+	p1.Save("pattern_one")
+
+	p2 := New()
+	p2.Save("pattern_two")
+
+	// List again
+	patterns, err = List()
+	if err != nil {
+		t.Errorf("List() unexpected error: %v", err)
+	}
+	if len(patterns) != 2 {
+		t.Errorf("List() returned %d patterns, want 2", len(patterns))
+	}
+}
+
+// TestDelete tests deleting a saved pattern
+func TestDelete(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Save a pattern
+	p := New()
+	p.Save("to_delete")
+
+	// Verify it exists
+	patterns, _ := List()
+	if len(patterns) != 1 {
+		t.Error("Pattern not saved correctly")
+	}
+
+	// Delete it
+	err := Delete("to_delete")
+	if err != nil {
+		t.Errorf("Delete() unexpected error: %v", err)
+	}
+
+	// Verify it's gone
+	patterns, _ = List()
+	if len(patterns) != 0 {
+		t.Error("Pattern not deleted")
+	}
+
+	// Try to delete non-existent
+	err = Delete("nonexistent")
+	if err == nil {
+		t.Error("Delete() of non-existent pattern should return error")
+	}
+}
+
+// TestSanitizeFilename tests filename sanitization
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"Simple name", "my_pattern", "my_pattern"},
+		{"With spaces", "my pattern", "my_pattern"},
+		{"Special chars", "my!@#pattern", "mypattern"},
+		{"Mixed case", "MyPattern", "MyPattern"},
+		{"With hyphens", "my-pattern-1", "my-pattern-1"},
+		{"Empty string", "", "unnamed"},
+		{"Only special chars", "!@#$", "unnamed"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := sanitizeFilename(tt.input)
+			if result != tt.expected {
+				t.Errorf("sanitizeFilename(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+// TestSaveAndLoad tests saving and loading patterns
+func TestSaveAndLoad(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Create a pattern and clear it to start fresh
+	p := New()
+	p.Clear() // Clear default pattern first
+	p.SetNote(1, 60) // C4
+	p.SetNote(5, 67) // G4
+	p.SetVelocity(1, 120)
+	p.SetGate(5, 70)
+	p.SetTempo(100)
+
+	// Test ToPatternFile conversion
+	pf := p.ToPatternFile("test_pattern")
+
+	if pf.Name != "test_pattern" {
+		t.Errorf("PatternFile.Name = %s, want test_pattern", pf.Name)
+	}
+	if pf.Tempo != 100 {
+		t.Errorf("PatternFile.Tempo = %d, want 100", pf.Tempo)
+	}
+	if len(pf.Steps) != 2 {
+		t.Errorf("PatternFile.Steps length = %d, want 2", len(pf.Steps))
+	}
+
+	// Test FromPatternFile conversion
+	loadedPattern, err := FromPatternFile(pf)
+	if err != nil {
+		t.Errorf("FromPatternFile() unexpected error: %v", err)
+	}
+
+	if loadedPattern.BPM != 100 {
+		t.Errorf("Loaded pattern BPM = %d, want 100", loadedPattern.BPM)
+	}
+
+	step1, _ := loadedPattern.GetStep(1)
+	if step1.Note != 60 || step1.IsRest {
+		t.Error("Loaded pattern step 1 not correct")
+	}
+	if step1.Velocity != 120 {
+		t.Errorf("Loaded pattern step 1 velocity = %d, want 120", step1.Velocity)
+	}
+
+	step5, _ := loadedPattern.GetStep(5)
+	if step5.Note != 67 || step5.IsRest {
+		t.Error("Loaded pattern step 5 not correct")
+	}
+	if step5.Gate != 70 {
+		t.Errorf("Loaded pattern step 5 gate = %d, want 70", step5.Gate)
+	}
+
+	// Test actual file save/load
+	err = p.Save("test_save")
+	if err != nil {
+		t.Errorf("Save() unexpected error: %v", err)
+	}
+
+	// Verify file exists
+	expectedFile := filepath.Join(PatternsDir, "test_save.json")
+	if _, err := os.Stat(expectedFile); os.IsNotExist(err) {
+		t.Error("Save() did not create file")
+	}
+
+	// Load it back
+	loadedPattern2, err := Load("test_save")
+	if err != nil {
+		t.Errorf("Load() unexpected error: %v", err)
+	}
+
+	// Verify it matches
+	if loadedPattern2.BPM != p.BPM {
+		t.Errorf("Loaded pattern BPM = %d, want %d", loadedPattern2.BPM, p.BPM)
 	}
 }
