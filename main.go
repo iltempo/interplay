@@ -3,7 +3,10 @@ package main
 import (
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 
+	"github.com/chzyer/readline"
 	"github.com/iltempo/interplay/commands"
 	"github.com/iltempo/interplay/midi"
 	"github.com/iltempo/interplay/playback"
@@ -28,9 +31,37 @@ func main() {
 		fmt.Printf("  %d: %s\n", i, port)
 	}
 
-	// For now, use the first port (later we can add selection)
-	portIndex := 0
-	fmt.Printf("\nUsing port %d: %s\n\n", portIndex, ports[portIndex])
+	// Select MIDI port
+	var portIndex int
+	if len(ports) == 1 {
+		// Only one port, use it automatically
+		portIndex = 0
+		fmt.Printf("\nUsing port %d: %s\n\n", portIndex, ports[portIndex])
+	} else {
+		// Multiple ports, let user choose
+		fmt.Print("\n")
+		rl, err := readline.New(fmt.Sprintf("Select MIDI port (0-%d): ", len(ports)-1))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating readline: %v\n", err)
+			os.Exit(1)
+		}
+		defer rl.Close()
+
+		input, err := rl.Readline()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading input: %v\n", err)
+			os.Exit(1)
+		}
+
+		input = strings.TrimSpace(input)
+		portIndex, err = strconv.Atoi(input)
+		if err != nil || portIndex < 0 || portIndex >= len(ports) {
+			fmt.Fprintf(os.Stderr, "Invalid port selection: %s\n", input)
+			os.Exit(1)
+		}
+
+		fmt.Printf("Using port %d: %s\n\n", portIndex, ports[portIndex])
+	}
 
 	// Open MIDI output
 	midiOut, err := midi.Open(portIndex)
