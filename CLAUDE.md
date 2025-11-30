@@ -175,7 +175,8 @@ This isolation allows easy replacement: when AI is integrated, delete `commands/
 - ✅ Per-step duration/gate length
 - ✅ Per-step velocity
 - ✅ Pattern library (save/recall different patterns)
-- 🔄 Variable pattern lengths (1-4 bars) - Future
+- ✅ Variable pattern lengths (via `length` command)
+- ✅ Humanization (velocity, timing, gate randomization)
 - 🔄 More sophisticated commands (transpose, randomize, etc.) - Future
 - 🔄 Better visual feedback (maybe ASCII sequencer grid) - Future
 
@@ -205,6 +206,21 @@ This isolation allows easy replacement: when AI is integrated, delete `commands/
 ```
 
 Future extensions can add: velocity, gate length, synth parameters per step
+
+**Humanization:**
+- Adds subtle random variations to make patterns feel more alive and organic
+- Applied at playback time, so each loop iteration is slightly different
+- Default settings (subtle):
+    - Velocity: ±8 (range 0-64)
+    - Timing: ±10ms (range 0-50ms)
+    - Gate: ±5% (range 0-50%)
+- Commands:
+    - `humanize velocity <amount>` - set velocity randomization
+    - `humanize timing <ms>` - set timing randomization
+    - `humanize gate <amount>` - set gate randomization
+    - `humanize` - show current settings
+    - Set to 0 to disable
+- Always enabled by default for more natural-sounding patterns
 
 ### Phase 3: AI Integration ✅ (Completed)
 - ✅ AI natural language interpretation via Claude API

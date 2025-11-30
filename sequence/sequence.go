@@ -18,11 +18,19 @@ type Step struct {
 	Duration int   // Note duration in steps (1-16), default 1
 }
 
+// Humanization settings for making patterns feel more alive
+type Humanization struct {
+	VelocityRange int // ± velocity variation (0-64), 0 = off
+	TimingMs      int // ± timing variation in milliseconds (0-50), 0 = off
+	GateRange     int // ± gate percentage variation (0-50), 0 = off
+}
+
 // Pattern represents a musical sequence pattern
 type Pattern struct {
-	Steps []Step // A slice of steps, allowing variable length
-	BPM   int
-	mu    sync.RWMutex // protects concurrent access
+	Steps        []Step // A slice of steps, allowing variable length
+	BPM          int
+	Humanization Humanization // humanization settings
+	mu           sync.RWMutex // protects concurrent access
 }
 
 // New creates a new pattern with a default length and starting sequence.
@@ -32,7 +40,13 @@ func New(length int) *Pattern {
 	}
 
 	p := &Pattern{
-		BPM:   80, // default tempo
+		BPM: 80, // default tempo
+		// Default humanization for more organic, alive-sounding patterns
+		Humanization: Humanization{
+			VelocityRange: 8,  // Subtle velocity variation
+			TimingMs:      10, // Slight timing variation
+			GateRange:     5,  // Small gate variation
+		},
 		Steps: make([]Step, length),
 	}
 
@@ -214,8 +228,9 @@ func (p *Pattern) Clone() *Pattern {
 	defer p.mu.RUnlock()
 
 	clone := &Pattern{
-		BPM:   p.BPM,
-		Steps: make([]Step, len(p.Steps)),
+		BPM:          p.BPM,
+		Humanization: p.Humanization, // Copy humanization settings
+		Steps:        make([]Step, len(p.Steps)),
 	}
 	copy(clone.Steps, p.Steps) // Slices require an explicit copy
 	return clone
@@ -230,6 +245,7 @@ func (p *Pattern) CopyFrom(other *Pattern) {
 	defer other.mu.RUnlock()
 
 	p.BPM = other.BPM
+	p.Humanization = other.Humanization
 	p.Steps = make([]Step, len(other.Steps))
 	copy(p.Steps, other.Steps)
 }
@@ -349,4 +365,47 @@ func NoteNameToMIDI(name string) (uint8, error) {
 	}
 
 	return uint8(midiNote), nil
+}
+
+// SetHumanizeVelocity sets the velocity humanization range (0-64)
+func (p *Pattern) SetHumanizeVelocity(amount int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if amount < 0 || amount > 64 {
+		return fmt.Errorf("velocity humanization must be 0-64")
+	}
+	p.Humanization.VelocityRange = amount
+	return nil
+}
+
+// SetHumanizeTiming sets the timing humanization in milliseconds (0-50)
+func (p *Pattern) SetHumanizeTiming(ms int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if ms < 0 || ms > 50 {
+		return fmt.Errorf("timing humanization must be 0-50ms")
+	}
+	p.Humanization.TimingMs = ms
+	return nil
+}
+
+// SetHumanizeGate sets the gate humanization range (0-50)
+func (p *Pattern) SetHumanizeGate(amount int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if amount < 0 || amount > 50 {
+		return fmt.Errorf("gate humanization must be 0-50")
+	}
+	p.Humanization.GateRange = amount
+	return nil
+}
+
+// GetHumanization returns a copy of the current humanization settings
+func (p *Pattern) GetHumanization() Humanization {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.Humanization
 }

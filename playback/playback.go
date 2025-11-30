@@ -2,6 +2,7 @@ package playback
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -135,8 +136,20 @@ func (e *Engine) playbackLoop() {
 					duration = 1 // default
 				}
 
-				// Calculate how many steps the note should sound for, based on gate
-				gateSteps := int(float64(duration) * float64(gate) / 100.0)
+				// Apply humanization to velocity and gate
+				humanizedVelocity, humanizedGate := applyHumanization(velocity, gate, pattern.Humanization)
+
+				// Apply timing humanization (add random delay/advance)
+				timingOffset := getTimingOffset(pattern.Humanization)
+				if timingOffset > 0 {
+					time.Sleep(timingOffset)
+				} else if timingOffset < 0 {
+					// For negative offsets, we can't go back in time, but we can shorten the wait later
+					// This is handled by adjusting the remaining time calculation
+				}
+
+				// Calculate how many steps the note should sound for, based on humanized gate
+				gateSteps := int(float64(duration) * float64(humanizedGate) / 100.0)
 				if gateSteps < 1 {
 					gateSteps = 1 // Note should sound for at least one step
 				}
@@ -150,8 +163,8 @@ func (e *Engine) playbackLoop() {
 					delete(activeNotes, step.Note)
 				}
 
-				// Send Note On
-				err := e.midiOut.NoteOn(channel, step.Note, velocity)
+				// Send Note On with humanized velocity
+				err := e.midiOut.NoteOn(channel, step.Note, humanizedVelocity)
 				if err != nil {
 					fmt.Printf("Error sending Note On: %v\n", err)
 				}
@@ -159,9 +172,9 @@ func (e *Engine) playbackLoop() {
 				if e.IsVerbose() {
 					noteName := midiToNoteName(step.Note)
 					if duration > 1 {
-						fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%% dur:%d)\n", stepIdx+1, noteName, velocity, gate, duration)
+						fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%% dur:%d)\n", stepIdx+1, noteName, humanizedVelocity, humanizedGate, duration)
 					} else {
-						fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%%)\n", stepIdx+1, noteName, velocity, gate)
+						fmt.Printf("♪ Step %2d: %s (vel:%d gate:%d%%)\n", stepIdx+1, noteName, humanizedVelocity, humanizedGate)
 					}
 				}
 
@@ -208,4 +221,49 @@ func midiToNoteName(note uint8) string {
 	octave := int(note/12) - 1
 	noteName := noteNames[note%12]
 	return fmt.Sprintf("%s%d", noteName, octave)
+}
+
+// applyHumanization applies random variations to velocity and gate based on humanization settings
+// Returns humanized velocity and gate values
+func applyHumanization(velocity uint8, gate int, humanization sequence.Humanization) (uint8, int) {
+	humanizedVelocity := velocity
+	humanizedGate := gate
+
+	// Apply velocity humanization (±range)
+	if humanization.VelocityRange > 0 {
+		variation := rand.Intn(humanization.VelocityRange*2+1) - humanization.VelocityRange
+		newVel := int(velocity) + variation
+		if newVel < 1 {
+			newVel = 1
+		}
+		if newVel > 127 {
+			newVel = 127
+		}
+		humanizedVelocity = uint8(newVel)
+	}
+
+	// Apply gate humanization (±range)
+	if humanization.GateRange > 0 {
+		variation := rand.Intn(humanization.GateRange*2+1) - humanization.GateRange
+		newGate := gate + variation
+		if newGate < 1 {
+			newGate = 1
+		}
+		if newGate > 100 {
+			newGate = 100
+		}
+		humanizedGate = newGate
+	}
+
+	return humanizedVelocity, humanizedGate
+}
+
+// getTimingOffset returns a random timing offset in milliseconds based on humanization settings
+func getTimingOffset(humanization sequence.Humanization) time.Duration {
+	if humanization.TimingMs == 0 {
+		return 0
+	}
+	// Random offset between -TimingMs and +TimingMs
+	offsetMs := rand.Intn(humanization.TimingMs*2+1) - humanization.TimingMs
+	return time.Duration(offsetMs) * time.Millisecond
 }

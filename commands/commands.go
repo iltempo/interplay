@@ -67,6 +67,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleVelocity(parts)
 	case "gate":
 		return h.handleGate(parts)
+	case "humanize":
+		return h.handleHumanize(parts)
 	case "length":
 		return h.handleLength(parts)
 	case "show":
@@ -303,6 +305,76 @@ func (h *Handler) handleGate(parts []string) error {
 	}
 
 	fmt.Printf("Set step %d gate to %d%%\n", stepNum, gate)
+	return nil
+}
+
+// handleHumanize: humanize <type> <amount>
+// type: velocity, timing, gate
+// amount: 0-64 for velocity, 0-50 for timing (ms), 0-50 for gate
+func (h *Handler) handleHumanize(parts []string) error {
+	if len(parts) == 1 {
+		// Show current humanization settings
+		humanization := h.pattern.GetHumanization()
+		fmt.Printf("Humanization settings:\n")
+		fmt.Printf("  velocity: ±%d (0-64)\n", humanization.VelocityRange)
+		fmt.Printf("  timing:   ±%dms (0-50)\n", humanization.TimingMs)
+		fmt.Printf("  gate:     ±%d%% (0-50)\n", humanization.GateRange)
+		if humanization.VelocityRange == 0 && humanization.TimingMs == 0 && humanization.GateRange == 0 {
+			fmt.Println("  (humanization is OFF)")
+		}
+		return nil
+	}
+
+	if len(parts) != 3 {
+		return fmt.Errorf("usage: humanize <type> <amount> (e.g., 'humanize velocity 10')\n" +
+			"types: velocity (0-64), timing (0-50ms), gate (0-50)\n" +
+			"or: humanize (to show current settings)")
+	}
+
+	humanizeType := strings.ToLower(parts[1])
+	amount, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return fmt.Errorf("invalid amount: %s", parts[2])
+	}
+
+	switch humanizeType {
+	case "velocity", "vel":
+		err = h.pattern.SetHumanizeVelocity(amount)
+		if err != nil {
+			return err
+		}
+		if amount == 0 {
+			fmt.Println("Velocity humanization OFF")
+		} else {
+			fmt.Printf("Velocity humanization set to ±%d\n", amount)
+		}
+
+	case "timing", "time":
+		err = h.pattern.SetHumanizeTiming(amount)
+		if err != nil {
+			return err
+		}
+		if amount == 0 {
+			fmt.Println("Timing humanization OFF")
+		} else {
+			fmt.Printf("Timing humanization set to ±%dms\n", amount)
+		}
+
+	case "gate":
+		err = h.pattern.SetHumanizeGate(amount)
+		if err != nil {
+			return err
+		}
+		if amount == 0 {
+			fmt.Println("Gate humanization OFF")
+		} else {
+			fmt.Printf("Gate humanization set to ±%d%%\n", amount)
+		}
+
+	default:
+		return fmt.Errorf("unknown humanize type: %s (use: velocity, timing, or gate)", humanizeType)
+	}
+
 	return nil
 }
 
@@ -568,6 +640,9 @@ func (h *Handler) handleHelp(parts []string) error {
   rest <step>             Set a step to rest/silence (e.g., 'rest 1')
   velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
   gate <step> <percent>   Set step gate length 1-100%% (e.g., 'gate 1 50')
+  humanize <type> <amt>   Add random variation (e.g., 'humanize velocity 10')
+                          Types: velocity (0-64), timing (0-50ms), gate (0-50)
+                          Use 'humanize' alone to show current settings
   length <steps>          Set pattern length (e.g., 'length 32')
   clear                   Clear all steps to rests
   reset                   Reset to default 16-step pattern

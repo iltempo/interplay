@@ -852,3 +852,106 @@ func TestDefaultPatternHasDuration(t *testing.T) {
 		}
 	}
 }
+
+func TestHumanization(t *testing.T) {
+	p := New(16)
+
+	// Test velocity humanization
+	err := p.SetHumanizeVelocity(10)
+	if err != nil {
+		t.Fatalf("SetHumanizeVelocity failed: %v", err)
+	}
+	if p.Humanization.VelocityRange != 10 {
+		t.Errorf("VelocityRange = %d, want 10", p.Humanization.VelocityRange)
+	}
+
+	// Test timing humanization
+	err = p.SetHumanizeTiming(20)
+	if err != nil {
+		t.Fatalf("SetHumanizeTiming failed: %v", err)
+	}
+	if p.Humanization.TimingMs != 20 {
+		t.Errorf("TimingMs = %d, want 20", p.Humanization.TimingMs)
+	}
+
+	// Test gate humanization
+	err = p.SetHumanizeGate(15)
+	if err != nil {
+		t.Fatalf("SetHumanizeGate failed: %v", err)
+	}
+	if p.Humanization.GateRange != 15 {
+		t.Errorf("GateRange = %d, want 15", p.Humanization.GateRange)
+	}
+
+	// Test validation - velocity range
+	err = p.SetHumanizeVelocity(100)
+	if err == nil {
+		t.Error("SetHumanizeVelocity(100) should fail (max is 64)")
+	}
+
+	// Test validation - timing range
+	err = p.SetHumanizeTiming(100)
+	if err == nil {
+		t.Error("SetHumanizeTiming(100) should fail (max is 50)")
+	}
+
+	// Test validation - gate range
+	err = p.SetHumanizeGate(100)
+	if err == nil {
+		t.Error("SetHumanizeGate(100) should fail (max is 50)")
+	}
+}
+
+func TestHumanizationInClone(t *testing.T) {
+	p := New(16)
+	p.SetHumanizeVelocity(10)
+	p.SetHumanizeTiming(20)
+	p.SetHumanizeGate(15)
+
+	clone := p.Clone()
+
+	if clone.Humanization.VelocityRange != 10 {
+		t.Errorf("Cloned VelocityRange = %d, want 10", clone.Humanization.VelocityRange)
+	}
+	if clone.Humanization.TimingMs != 20 {
+		t.Errorf("Cloned TimingMs = %d, want 20", clone.Humanization.TimingMs)
+	}
+	if clone.Humanization.GateRange != 15 {
+		t.Errorf("Cloned GateRange = %d, want 15", clone.Humanization.GateRange)
+	}
+}
+
+func TestHumanizationInCopyFrom(t *testing.T) {
+	p1 := New(16)
+	p1.SetHumanizeVelocity(10)
+	p1.SetHumanizeTiming(20)
+	p1.SetHumanizeGate(15)
+
+	p2 := New(16)
+	p2.CopyFrom(p1)
+
+	if p2.Humanization.VelocityRange != 10 {
+		t.Errorf("Copied VelocityRange = %d, want 10", p2.Humanization.VelocityRange)
+	}
+	if p2.Humanization.TimingMs != 20 {
+		t.Errorf("Copied TimingMs = %d, want 20", p2.Humanization.TimingMs)
+	}
+	if p2.Humanization.GateRange != 15 {
+		t.Errorf("Copied GateRange = %d, want 15", p2.Humanization.GateRange)
+	}
+}
+
+func TestDefaultHumanization(t *testing.T) {
+	p := New(16)
+
+	// Verify default humanization is set
+	if p.Humanization.VelocityRange != 8 {
+		t.Errorf("Default VelocityRange = %d, want 8", p.Humanization.VelocityRange)
+	}
+	if p.Humanization.TimingMs != 10 {
+		t.Errorf("Default TimingMs = %d, want 10", p.Humanization.TimingMs)
+	}
+	if p.Humanization.GateRange != 5 {
+		t.Errorf("Default GateRange = %d, want 5", p.Humanization.GateRange)
+	}
+}

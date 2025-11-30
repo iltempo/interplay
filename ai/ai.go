@@ -18,19 +18,27 @@ Available commands:
 - rest <step>: Set a step to rest/silence
 - velocity <step> <value>: Set velocity 0-127 (higher = louder)
 - gate <step> <percent>: Set gate length 1-100%% (lower = shorter/staccato)
+- humanize <type> <amount>: Add random variation (velocity 0-64, timing 0-50ms, gate 0-50)
 - tempo <bpm>: Change tempo
 - length <steps>: Change the total number of steps in the pattern
 - clear: Clear all steps to rests
 - reset: Reset to default pattern
+- save <name>: Save current pattern
+- load <name>: Load a saved pattern
 
 Steps are numbered 1-%d. Notes are specified as C3, D#4, Bb2, etc.
 Duration is in steps (1-%d), where dur:4 = quarter note.
+Humanization adds organic variation - default is on, set to 0 to disable.
 
 Current pattern state will be provided. Respond ONLY with the commands to execute, one per line, no explanations. Be concise and musical.
 
 Examples:
 User: "make step 1 louder"
 You: velocity 1 127
+
+User: "make it feel more alive"
+You: humanize velocity 15
+humanize timing 20
 
 User: "set the length to 32"
 You: length 32
@@ -43,17 +51,21 @@ Available commands in Interplay:
 - rest <step>: Set a step to rest/silence
 - velocity <step> <value>: Set velocity 0-127
 - gate <step> <percent>: Set gate length 1-100%%
+- humanize <type> <amount>: Add random variation (velocity 0-64, timing 0-50ms, gate 0-50)
 - tempo <bpm>: Change tempo
 - length <steps>: Change the total number of steps in the pattern
 - clear: Clear all steps to rests
 - reset: Reset to default pattern
 - save <name>: Save current pattern
 - load <name>: Load a saved pattern
-- ai <request>: Use AI to modify pattern (you!)
-- ask <question>: Ask questions (this mode)
+- list: List all saved patterns
+- delete <name>: Delete a saved pattern
+- verbose [on|off]: Toggle step-by-step output
+- ai: Enter AI session mode (you!)
 
 Steps are numbered 1-%d. Notes are specified as C3, D#4, Bb2, etc.
 Duration is in steps (1-%d).
+Humanization is enabled by default with subtle settings - adds organic feel.
 
 When discussing patterns:
 - Analyze the musical character
@@ -70,13 +82,21 @@ Available commands:
 - rest <step>: Set a step to rest/silence
 - velocity <step> <value>: Set velocity 0-127
 - gate <step> <percent>: Set gate length 1-100%%
+- humanize <type> <amount>: Add random variation (types: velocity 0-64, timing 0-50ms, gate 0-50)
 - tempo <bpm>: Change tempo
 - length <steps>: Change the total number of steps in the pattern
 - clear: Clear all steps to rests
 - reset: Reset to default pattern
+- save <name>: Save current pattern
+- load <name>: Load a saved pattern
+- list: List all saved patterns
+- delete <name>: Delete a saved pattern
+- show: Display current pattern
+- verbose [on|off]: Toggle step-by-step output
 
 Steps are numbered 1-%d. Notes are specified as C3, D#4, Bb2, etc.
 Duration is in steps (1-%d).
+Humanization is enabled by default (velocity ±8, timing ±10ms, gate ±5%%) - adds organic feel.
 
 Your role in this interactive session:
 1. Have natural conversations about music and the pattern
