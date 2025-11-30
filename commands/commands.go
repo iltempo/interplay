@@ -81,8 +81,6 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleDelete(parts)
 	case "ai":
 		return h.handleAI(parts)
-	case "ask":
-		return h.handleAsk(cmdLine)
 	case "clear-chat":
 		return h.handleClearChat(parts)
 	case "help":
@@ -376,7 +374,7 @@ func (h *Handler) handleAI(parts []string) error {
 	// Clear any previous conversation history to start fresh
 	h.aiClient.ClearHistory()
 
-	fmt.Println("Entering AI session. Type 'exit' to return to command mode.")
+	fmt.Println("Entering AI session. Commands work directly. Type 'exit' to return to command mode.")
 	fmt.Println()
 
 	// Create readline for AI session
@@ -404,10 +402,21 @@ func (h *Handler) handleAI(parts []string) error {
 			return nil
 		}
 
+		// Empty line: show pattern
 		if input == "" {
+			fmt.Println(h.pattern.String())
 			continue
 		}
 
+		// Check if input is a known command - if so, execute it directly without AI
+		if h.isKnownCommand(input) {
+			if err := h.ProcessCommand(input); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+			continue
+		}
+
+		// Not a known command - send to AI
 		// Get current pattern state
 		currentPattern := h.pattern.String()
 
@@ -437,6 +446,29 @@ func (h *Handler) handleAI(parts []string) error {
 	}
 }
 
+// isKnownCommand checks if the input starts with a known command
+func (h *Handler) isKnownCommand(input string) bool {
+	parts := strings.Fields(input)
+	if len(parts) == 0 {
+		return false
+	}
+
+	cmd := strings.ToLower(parts[0])
+	knownCommands := []string{
+		"set", "rest", "clear", "reset", "tempo", "velocity", "gate",
+		"show", "verbose", "save", "load", "list", "delete",
+		"clear-chat", "help", "quit",
+	}
+
+	for _, known := range knownCommands {
+		if cmd == known {
+			return true
+		}
+	}
+
+	return false
+}
+
 // cleanExecuteBlocks removes [EXECUTE]...[/EXECUTE] blocks from display
 func cleanExecuteBlocks(text string) string {
 	executeStart := "[EXECUTE]"
@@ -458,37 +490,6 @@ func cleanExecuteBlocks(text string) string {
 	}
 
 	return strings.TrimSpace(text)
-}
-
-// handleAsk: ask <question>
-func (h *Handler) handleAsk(cmdLine string) error {
-	// Check if AI client is available
-	if h.aiClient == nil {
-		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
-	}
-
-	// Extract the question (everything after "ask ")
-	question := strings.TrimSpace(strings.TrimPrefix(cmdLine, "ask"))
-	if question == "" {
-		return fmt.Errorf("usage: ask <question> (e.g., 'ask what scale is this in?')")
-	}
-
-	// Get current pattern state
-	currentPattern := h.pattern.String()
-
-	fmt.Println("AI thinking...")
-
-	// Get conversational response
-	ctx := context.Background()
-	response, err := h.aiClient.Chat(ctx, question, currentPattern)
-	if err != nil {
-		return fmt.Errorf("AI error: %w", err)
-	}
-
-	// Print response
-	fmt.Printf("\n%s\n\n", response)
-
-	return nil
 }
 
 // handleClearChat: clear-chat
@@ -529,10 +530,9 @@ func (h *Handler) handleHelp(parts []string) error {
   list                    List all saved patterns
   delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
   ai                      Enter interactive AI session (AI: %s)
-                          Conversational mode - ask questions, get suggestions,
-                          and apply changes in real-time. Type 'exit' to return.
-  ask <question>          Ask AI a single question (AI: %s)
-                          Quick questions without entering session mode
+                          All commands work directly in AI mode.
+                          Natural language is sent to AI for pattern changes.
+                          Type 'exit' to return to command mode.
   clear-chat              Clear AI conversation history
   help                    Show this help message
   quit                    Exit the program
@@ -540,7 +540,7 @@ func (h *Handler) handleHelp(parts []string) error {
 
 Notes: C4, D#5, Bb3, etc. | Steps: 1-16 | Default velocity: 100 | Default gate: 90%%
 Patterns saved in 'patterns/' directory as JSON files.
-AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus, aiStatus)
+AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus)
 
 	fmt.Println(helpText)
 	return nil
