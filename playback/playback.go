@@ -136,6 +136,13 @@ func (e *Engine) playbackLoop() {
 					duration = 1 // default
 				}
 
+				// Apply swing timing (delays even-numbered steps)
+				if pattern.SwingPercent > 0 && (stepIdx%2 == 1) {
+					// Step indices are 0-based, so stepIdx%2==1 means steps 2, 4, 6, etc.
+					swingDelay := time.Duration(stepDurationMs*float64(pattern.SwingPercent)/100.0) * time.Millisecond
+					time.Sleep(swingDelay)
+				}
+
 				// Apply humanization to velocity and gate
 				humanizedVelocity, humanizedGate := applyHumanization(velocity, gate, pattern.Humanization)
 

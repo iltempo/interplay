@@ -69,6 +69,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleGate(parts)
 	case "humanize":
 		return h.handleHumanize(parts)
+	case "swing":
+		return h.handleSwing(parts)
 	case "length":
 		return h.handleLength(parts)
 	case "show":
@@ -378,6 +380,59 @@ func (h *Handler) handleHumanize(parts []string) error {
 	return nil
 }
 
+// handleSwing: swing <percent>
+// percent: 0-75%, where 0 = straight, 50 = triplet swing, 66 = hard swing
+func (h *Handler) handleSwing(parts []string) error {
+	if len(parts) == 1 {
+		// Show current swing setting
+		swing := h.pattern.GetSwing()
+		if swing == 0 {
+			fmt.Println("Swing: OFF (straight timing)")
+		} else {
+			fmt.Printf("Swing: %d%%", swing)
+			if swing >= 48 && swing <= 52 {
+				fmt.Println(" (triplet swing)")
+			} else if swing >= 64 && swing <= 68 {
+				fmt.Println(" (hard swing)")
+			} else {
+				fmt.Println()
+			}
+		}
+		return nil
+	}
+
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: swing <percent> (e.g., 'swing 50' for triplet swing)\n" +
+			"0 = straight, 50 = triplet swing, 66 = hard swing\n" +
+			"or: swing (to show current setting)")
+	}
+
+	percent, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return fmt.Errorf("invalid swing percentage: %s", parts[1])
+	}
+
+	err = h.pattern.SetSwing(percent)
+	if err != nil {
+		return err
+	}
+
+	if percent == 0 {
+		fmt.Println("Swing OFF - straight timing")
+	} else {
+		fmt.Printf("Swing set to %d%%", percent)
+		if percent >= 48 && percent <= 52 {
+			fmt.Println(" (triplet swing - classic feel)")
+		} else if percent >= 64 && percent <= 68 {
+			fmt.Println(" (hard swing - laid back groove)")
+		} else {
+			fmt.Println()
+		}
+	}
+
+	return nil
+}
+
 // handleLength: length <steps>
 func (h *Handler) handleLength(parts []string) error {
 	if len(parts) != 2 {
@@ -643,6 +698,8 @@ func (h *Handler) handleHelp(parts []string) error {
   humanize <type> <amt>   Add random variation (e.g., 'humanize velocity 10')
                           Types: velocity (0-64), timing (0-50ms), gate (0-50)
                           Use 'humanize' alone to show current settings
+  swing <percent>         Add swing/groove (e.g., 'swing 50' for triplet swing)
+                          0 = straight, 50 = triplet, 66 = hard swing (0-75)
   length <steps>          Set pattern length (e.g., 'length 32')
   clear                   Clear all steps to rests
   reset                   Reset to default 16-step pattern

@@ -19,6 +19,7 @@ Available commands:
 - velocity <step> <value>: Set velocity 0-127 (higher = louder)
 - gate <step> <percent>: Set gate length 1-100%% (lower = shorter/staccato)
 - humanize <type> <amount>: Add random variation (velocity 0-64, timing 0-50ms, gate 0-50)
+- swing <percent>: Add swing/groove (0-75%%, 0=straight, 50=triplet swing, 66=hard swing)
 - tempo <bpm>: Change tempo
 - length <steps>: Change the total number of steps in the pattern
 - clear: Clear all steps to rests
@@ -40,6 +41,9 @@ User: "make it feel more alive"
 You: humanize velocity 15
 humanize timing 20
 
+User: "add some swing"
+You: swing 50
+
 User: "set the length to 32"
 You: length 32
 `
@@ -52,6 +56,7 @@ Available commands in Interplay:
 - velocity <step> <value>: Set velocity 0-127
 - gate <step> <percent>: Set gate length 1-100%%
 - humanize <type> <amount>: Add random variation (velocity 0-64, timing 0-50ms, gate 0-50)
+- swing <percent>: Add swing/groove (0-75%%, 0=straight, 50=triplet swing, 66=hard swing)
 - tempo <bpm>: Change tempo
 - length <steps>: Change the total number of steps in the pattern
 - clear: Clear all steps to rests

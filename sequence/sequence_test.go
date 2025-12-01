@@ -955,3 +955,66 @@ func TestDefaultHumanization(t *testing.T) {
 		t.Errorf("Default GateRange = %d, want 5", p.Humanization.GateRange)
 	}
 }
+
+func TestSwing(t *testing.T) {
+	p := New(16)
+
+	// Test setting swing
+	err := p.SetSwing(50)
+	if err != nil {
+		t.Fatalf("SetSwing failed: %v", err)
+	}
+	if p.SwingPercent != 50 {
+		t.Errorf("SwingPercent = %d, want 50", p.SwingPercent)
+	}
+
+	// Test GetSwing
+	swing := p.GetSwing()
+	if swing != 50 {
+		t.Errorf("GetSwing() = %d, want 50", swing)
+	}
+
+	// Test validation - too high
+	err = p.SetSwing(100)
+	if err == nil {
+		t.Error("SetSwing(100) should fail (max is 75)")
+	}
+
+	// Test validation - negative
+	err = p.SetSwing(-10)
+	if err == nil {
+		t.Error("SetSwing(-10) should fail")
+	}
+
+	// Test setting to 0 (off)
+	err = p.SetSwing(0)
+	if err != nil {
+		t.Fatalf("SetSwing(0) failed: %v", err)
+	}
+	if p.SwingPercent != 0 {
+		t.Errorf("SwingPercent = %d, want 0", p.SwingPercent)
+	}
+}
+
+func TestSwingInClone(t *testing.T) {
+	p := New(16)
+	p.SetSwing(50)
+
+	clone := p.Clone()
+
+	if clone.SwingPercent != 50 {
+		t.Errorf("Cloned SwingPercent = %d, want 50", clone.SwingPercent)
+	}
+}
+
+func TestSwingInCopyFrom(t *testing.T) {
+	p1 := New(16)
+	p1.SetSwing(66)
+
+	p2 := New(16)
+	p2.CopyFrom(p1)
+
+	if p2.SwingPercent != 66 {
+		t.Errorf("Copied SwingPercent = %d, want 66", p2.SwingPercent)
+	}
+}

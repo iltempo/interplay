@@ -29,6 +29,7 @@ type Humanization struct {
 type Pattern struct {
 	Steps        []Step // A slice of steps, allowing variable length
 	BPM          int
+	SwingPercent int          // Swing/groove timing (0-75%), 0 = off, 50 = triplet swing
 	Humanization Humanization // humanization settings
 	mu           sync.RWMutex // protects concurrent access
 }
@@ -229,6 +230,7 @@ func (p *Pattern) Clone() *Pattern {
 
 	clone := &Pattern{
 		BPM:          p.BPM,
+		SwingPercent: p.SwingPercent,
 		Humanization: p.Humanization, // Copy humanization settings
 		Steps:        make([]Step, len(p.Steps)),
 	}
@@ -245,6 +247,7 @@ func (p *Pattern) CopyFrom(other *Pattern) {
 	defer other.mu.RUnlock()
 
 	p.BPM = other.BPM
+	p.SwingPercent = other.SwingPercent
 	p.Humanization = other.Humanization
 	p.Steps = make([]Step, len(other.Steps))
 	copy(p.Steps, other.Steps)
@@ -408,4 +411,24 @@ func (p *Pattern) GetHumanization() Humanization {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.Humanization
+}
+
+// SetSwing sets the swing/groove percentage (0-75%)
+// 0 = straight timing, 50 = triplet swing, 66 = hard swing
+func (p *Pattern) SetSwing(percent int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if percent < 0 || percent > 75 {
+		return fmt.Errorf("swing must be 0-75%%")
+	}
+	p.SwingPercent = percent
+	return nil
+}
+
+// GetSwing returns the current swing percentage
+func (p *Pattern) GetSwing() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.SwingPercent
 }

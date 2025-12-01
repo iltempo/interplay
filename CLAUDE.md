@@ -177,6 +177,7 @@ This isolation allows easy replacement: when AI is integrated, delete `commands/
 - ✅ Pattern library (save/recall different patterns)
 - ✅ Variable pattern lengths (via `length` command)
 - ✅ Humanization (velocity, timing, gate randomization)
+- ✅ Swing/Groove timing (adjustable swing percentage)
 
 Note: Additional musical commands (transpose, randomize, etc.) can be handled via AI mode, so no need for dedicated commands.
 
@@ -221,6 +222,19 @@ Future extensions can add: velocity, gate length, synth parameters per step
     - `humanize` - show current settings
     - Set to 0 to disable
 - Always enabled by default for more natural-sounding patterns
+
+**Swing/Groove:**
+- Delays every other 16th note (steps 2, 4, 6, 8, etc.) to create shuffle/groove feel
+- Off by default - activate with `swing <percent>` command
+- Common settings:
+    - 0% = straight/even timing (default)
+    - 50% = triplet swing (classic jazz/blues feel)
+    - 66% = hard swing (very laid back)
+- Commands:
+    - `swing <percent>` - set swing amount (0-75%)
+    - `swing` - show current setting
+- Combines with humanization for even more organic feel
+- Applied in playback engine, affects timing only
 
 ### Phase 3: AI Integration ✅ (Completed)
 - ✅ AI natural language interpretation via Claude API
