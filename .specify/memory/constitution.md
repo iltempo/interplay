@@ -4,26 +4,36 @@
 SYNC IMPACT REPORT
 ==================
 
-Version Change: Initial → 1.0.0
-Ratification Date: 2025-12-04
-Reason: Initial constitution ratification for Interplay project
+Version Change: 1.0.0 → 1.1.0
+Amendment Date: 2025-12-04
+Reason: MINOR version bump - Added new AI-First Creativity principle and expanded Musical Constraints
 
-New Principles Established:
-1. Incremental Development - Build one small piece at a time with explanations
-2. Collaborative Decision-Making - Developer maintains architectural control with AI assistance
-3. Real-Time Musical Reliability - Priority on live performance and musical timing
-4. Pattern-Based Simplicity - Queue changes for loop boundaries, avoid complex synchronization
-5. Learning-First Documentation - Explain concepts as they're introduced
+Modified Principles:
+- Principle III: "Real-Time Musical Reliability" → Enhanced to include musical intelligence and creative dissonance
+- Technology Stack: AI Integration changed from "optional runtime dependency" to "core feature"
+
+Added Sections:
+- New Principle VI: AI-First Creativity - Elevates AI assistance from optional to foundational
+- Musical Constraints: Expanded to include musical intelligence, dissonance, and creative tension
+
+Removed Sections: None
 
 Templates Requiring Updates:
-- ✅ plan-template.md: Constitution Check section present and ready
-- ✅ spec-template.md: User scenarios and requirements align with incremental approach
-- ✅ tasks-template.md: Phased approach supports incremental implementation
+- ✅ plan-template.md: Constitution Check section accommodates new principles
+- ✅ spec-template.md: User scenarios support AI-first approach
+- ✅ tasks-template.md: Phased approach compatible with AI-first development
+- ✅ README.md: Already updated to reflect AI-first positioning
 
 Follow-up TODOs: None
 
+Rationale:
+- README.md now positions Interplay as "AI-assisted creative tool" (AI-first)
+- Musical intelligence with creative dissonance is now a core value
+- AI mode described as "where the magic happens", not optional
+- This constitutional amendment aligns governance with product positioning
+
 Next Steps:
-- Commit with: "docs: establish Interplay constitution v1.0.0 (initial ratification)"
+- Commit with: "docs: amend constitution to v1.1.0 (add AI-first creativity principle)"
 ==================
 -->
 
@@ -49,15 +59,17 @@ The developer maintains final architectural control. Before significant changes:
 
 **Rationale**: This project is as much about learning Go as building a tool. Architectural autonomy ensures the codebase reflects the developer's understanding and vision, not just AI suggestions.
 
-### III. Real-Time Musical Reliability
+### III. Musical Intelligence with Creative Freedom
 
-Timing and musical feel are non-negotiable. All features must:
+Musical coherence and creative expression are equally valued. All features must:
 - Maintain accurate MIDI timing (currently 16th-note precision)
 - Preserve playback continuity during pattern changes
+- Understand musical concepts: harmony, rhythm, tension, resolution
+- Embrace dissonance, unconventional harmonies, and creative tension as valid musical tools
 - Apply humanization/swing consistently and predictably
 - Handle MIDI I/O without blocking the playback goroutine
 
-**Rationale**: Interplay targets live performance. Timing glitches destroy musical flow. Pattern changes queue at loop boundaries specifically to avoid synchronization complexity while maintaining reliability.
+**Rationale**: Interplay targets creative music-making, not just technically correct sequences. The AI must help users stay musically coherent while encouraging experimentation with dissonance when that serves the creative vision. Timing glitches destroy musical flow, but creative dissonance enhances it.
 
 ### IV. Pattern-Based Simplicity
 
@@ -79,31 +91,46 @@ Documentation must teach, not just describe. Requirements:
 
 **Rationale**: This project has dual goals - functional tool AND learning experience. Documentation ensures knowledge transfers across sessions and provides context for future decisions.
 
+### VI. AI-First Creativity
+
+AI assistance is a core feature, not an optional add-on. Design requirements:
+- AI mode is the primary creative interface for pattern building
+- Natural language interaction must translate musical intent to MIDI patterns
+- Direct commands remain available for precision control and fallback
+- AI must understand musical concepts and explain its creative decisions
+- System must function without AI (degraded experience, not broken)
+
+**Rationale**: Interplay is positioned as an "AI-assisted creative tool" where AI collaboration transforms the creative process. Users should be able to express musical ideas in natural language ("make it darker", "add tension") and receive musically intelligent responses. Manual commands serve precision needs and ensure the tool works without an API key.
+
 ## Development Constraints
 
 ### Technology Stack (MUST)
 
 - **Language**: Go 1.25.4 (stdlib + minimal dependencies)
 - **MIDI Library**: `gitlab.com/gomidi/midi/v2` with `rtmididrv` (CGO required)
-- **AI Integration**: Anthropic Claude API via `anthropic-sdk-go` (optional runtime dependency)
+- **AI Integration**: Anthropic Claude API via `anthropic-sdk-go` (core feature, graceful degradation without API key)
 - **Distribution**: Platform-specific binaries (macOS/Windows/Linux) due to CGO
 - **Testing**: Standard Go testing (`go test ./...`)
 
 ### Architecture Constraints (MUST)
 
-- **Core modules are permanent**: `midi/`, `sequence/`, `playback/`, `main.go`
+- **Core modules are permanent**: `midi/`, `sequence/`, `playback/`, `main.go`, `ai/`
 - **Pattern state**: Mutex-protected shared state between command handler and playback goroutine
-- **Concurrency model**: Main goroutine (commands) + playback goroutine (continuous loop)
+- **Concurrency model**: Main goroutine (commands/AI) + playback goroutine (continuous loop)
 - **Pattern swapping**: Current ← Next at loop boundary only
 - **No external state**: Patterns stored as JSON in `patterns/` directory
+- **AI integration**: Separate module that calls sequence manipulation functions
 
-### Musical Constraints (SHOULD)
+### Musical Constraints (MUST)
 
+- **Musical intelligence**: AI must understand harmony, rhythm, tension, and resolution
+- **Creative dissonance**: System embraces dissonant notes, chromatic passages, and unconventional harmonies as creative tools
 - **Default pattern**: 16 steps (1 bar of 16th notes at configurable BPM)
 - **Variable length**: Patterns support 1-64 steps via `length` command
 - **Note format**: Human-readable (e.g., "C3", "D#4") converted to MIDI internally
 - **Humanization**: Enabled by default with subtle settings (±8 velocity, ±10ms timing, ±5% gate)
 - **Swing**: Off by default, configurable 0-75%
+- **Musical explanations**: AI should explain creative choices (e.g., "This Db creates tension before resolution")
 
 ## Development Workflow
 
@@ -129,11 +156,12 @@ Before merging code:
 
 ### AI Assistance Protocol (MUST)
 
-When using AI assistance (Claude Code or AI mode):
+When using AI assistance (Claude Code or in-app AI mode):
 - AI proposes, developer approves architectural changes
 - Trade-offs must be explicit before implementation
 - "Why this way?" questions are always welcome and must be answered
 - Developer controls what goes into the codebase
+- AI musical suggestions should include reasoning
 
 ## Governance
 
@@ -143,6 +171,7 @@ This constitution may be amended when:
 1. A design decision establishes a new project-wide principle
 2. A constraint proves limiting and alternatives are evaluated
 3. Development phases reveal new architectural insights
+4. Product positioning changes require principle updates
 
 Amendments require:
 - Documentation of reasoning and alternatives considered
@@ -163,6 +192,6 @@ Development sessions should:
 - Reference this constitution when making architectural decisions
 - Justify any departures from established principles
 - Propose amendments when constraints prove too limiting
-- Keep `CLAUDE.md` in sync with architectural evolution
+- Keep `CLAUDE.md` and `README.md` in sync with constitutional principles
 
-**Version**: 1.0.0 | **Ratified**: 2025-12-04 | **Last Amended**: 2025-12-04
+**Version**: 1.1.0 | **Ratified**: 2025-12-04 | **Last Amended**: 2025-12-04
