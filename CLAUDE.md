@@ -393,3 +393,9 @@ type Step struct {
 - Performance mode vs. rehearsal mode
 - Keyboard shortcuts for critical operations
 - Pattern transition options (immediate, next bar, next 4 bars)
+
+## Active Technologies
+- JSON files in `patterns/` directory (existing pattern persistence system) (001-midi-cc-control)
+
+## Recent Changes
+- 001-midi-cc-control: Added Go 1.25.4
