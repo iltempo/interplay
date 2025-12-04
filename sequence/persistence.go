@@ -15,11 +15,12 @@ const (
 
 // PatternStep represents a single step in the JSON format
 type PatternStep struct {
-	Step     int    `json:"step"`
-	Note     string `json:"note"`
-	Velocity uint8  `json:"velocity,omitempty"`
-	Gate     int    `json:"gate,omitempty"`
-	Duration int    `json:"duration,omitempty"`
+	Step     int            `json:"step"`
+	Note     string         `json:"note"`
+	Velocity uint8          `json:"velocity,omitempty"`
+	Gate     int            `json:"gate,omitempty"`
+	Duration int            `json:"duration,omitempty"`
+	CC       map[string]int `json:"cc,omitempty"` // CC automation: "74" -> 127 (JSON keys are strings)
 }
 
 // PatternFile represents the JSON structure for saving/loading patterns
@@ -62,6 +63,13 @@ func (p *Pattern) ToPatternFile(name string) *PatternFile {
 			}
 			if step.Duration != 1 {
 				ps.Duration = step.Duration
+			}
+			// Include CC automation if present (convert int keys to string keys for JSON)
+			if len(step.CCValues) > 0 {
+				ps.CC = make(map[string]int)
+				for ccNum, value := range step.CCValues {
+					ps.CC[fmt.Sprintf("%d", ccNum)] = value
+				}
 			}
 			pf.Steps = append(pf.Steps, ps)
 		}
@@ -111,12 +119,33 @@ func FromPatternFile(pf *PatternFile) (*Pattern, error) {
 			duration = 1
 		}
 
+		// Convert CC map from JSON (string keys) to internal format (int keys)
+		var ccValues map[int]int
+		if len(ps.CC) > 0 {
+			ccValues = make(map[int]int)
+			for ccNumStr, value := range ps.CC {
+				var ccNum int
+				_, err := fmt.Sscanf(ccNumStr, "%d", &ccNum)
+				if err != nil {
+					fmt.Printf("warning: invalid CC number '%s' in step %d of pattern '%s', skipping\n", ccNumStr, ps.Step, pf.Name)
+					continue
+				}
+				// Validate CC number and value
+				if err := ValidateCC(ccNum, value); err != nil {
+					fmt.Printf("warning: %v in step %d of pattern '%s', skipping\n", err, ps.Step, pf.Name)
+					continue
+				}
+				ccValues[ccNum] = value
+			}
+		}
+
 		p.Steps[ps.Step-1] = Step{
 			Note:     midiNote,
 			IsRest:   false,
 			Velocity: velocity,
 			Gate:     gate,
 			Duration: duration,
+			CCValues: ccValues,
 		}
 	}
 

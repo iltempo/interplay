@@ -26,11 +26,11 @@ This is a single Go project with the following structure:
 
 **Purpose**: Review existing codebase and prepare for CC feature implementation
 
-- [ ] T001 Review existing sequence/step.go structure to understand current Step definition
-- [ ] T002 Review existing sequence/sequence.go to understand pattern state management and mutex usage
-- [ ] T003 [P] Review existing midi/ package to understand MIDI message sending patterns
-- [ ] T004 [P] Review existing commands/ package to understand command parser framework
-- [ ] T005 [P] Review existing playback/ package to understand step playback loop
+- [x] T001 Review existing sequence/step.go structure to understand current Step definition
+- [x] T002 Review existing sequence/sequence.go to understand pattern state management and mutex usage
+- [x] T003 [P] Review existing midi/ package to understand MIDI message sending patterns
+- [x] T004 [P] Review existing commands/ package to understand command parser framework
+- [x] T005 [P] Review existing playback/ package to understand step playback loop
 
 ---
 
@@ -40,13 +40,13 @@ This is a single Go project with the following structure:
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Extend Step struct with CCValues map[int]int field in sequence/step.go
-- [ ] T007 Update Step JSON marshaling to include cc field with omitempty tag in sequence/step.go
-- [ ] T008 Update Step JSON unmarshaling to handle optional cc field in sequence/step.go
-- [ ] T009 Extend Sequence struct with globalCC map[int]int field in sequence/sequence.go
-- [ ] T010 Implement CC validation helper function (0-127 range check) in sequence/validation.go
-- [ ] T011 Add SendCC(channel, ccNumber, value uint8) method to midi/ package
-- [ ] T012 Update playback loop to send CC messages before Note On in playback/playback.go
+- [x] T006 Extend Step struct with CCValues map[int]int field in sequence/sequence.go
+- [x] T007 Update Step JSON marshaling to include cc field with omitempty tag in sequence/persistence.go
+- [x] T008 Update Step JSON unmarshaling to handle optional cc field in sequence/persistence.go
+- [x] T009 Extend Pattern struct with globalCC map[int]int field in sequence/sequence.go
+- [x] T010 Implement CC validation helper function (0-127 range check) in sequence/validation.go
+- [x] T011 Add SendCC(channel, ccNumber, value uint8) method to midi/midi.go
+- [x] T012 Update playback loop to send CC messages before Note On in playback/playback.go
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -60,12 +60,12 @@ This is a single Go project with the following structure:
 
 ### Implementation for User Story 1
 
-- [ ] T013 [US1] Implement SetGlobalCC(ccNumber, value int) method with mutex protection in sequence/sequence.go
-- [ ] T014 [US1] Implement GetGlobalCC(ccNumber int) method in sequence/sequence.go
-- [ ] T015 [US1] Add cc command parser in commands/cc.go (parse: `cc <cc-number> <value>`)
-- [ ] T016 [US1] Implement cc command handler that calls SetGlobalCC with validation in commands/cc.go
-- [ ] T017 [US1] Update playback loop to send global CC messages at loop start in playback/playback.go
-- [ ] T018 [US1] Add error handling for invalid CC numbers/values (display error without disrupting playback) in commands/cc.go
+- [x] T013 [US1] Implement SetGlobalCC(ccNumber, value int) method with mutex protection in sequence/sequence.go
+- [x] T014 [US1] Implement GetGlobalCC(ccNumber int) method in sequence/sequence.go
+- [x] T015 [US1] Add cc command parser in commands/cc.go (parse: `cc <cc-number> <value>`)
+- [x] T016 [US1] Implement cc command handler that calls SetGlobalCC with validation in commands/cc.go
+- [x] T017 [US1] Update playback loop to send global CC messages at loop start in playback/playback.go
+- [x] T018 [US1] Add error handling for invalid CC numbers/values (display error without disrupting playback) in commands/cc.go
 
 **Checkpoint**: At this point, User Story 1 should be fully functional and testable independently - users can send global CC and hear synth respond
 

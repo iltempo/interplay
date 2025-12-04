@@ -91,6 +91,17 @@ func (e *Engine) playbackLoop() {
 		// map: note number -> remaining steps
 		activeNotes := make(map[uint8]int)
 
+		// Send global CC messages at the start of each loop iteration
+		globalCC := pattern.GetAllGlobalCC()
+		if len(globalCC) > 0 {
+			for ccNum, value := range globalCC {
+				err := e.midiOut.SendCC(channel, uint8(ccNum), uint8(value))
+				if err != nil {
+					fmt.Printf("Error sending global CC#%d: %v\n", ccNum, err)
+				}
+			}
+		}
+
 		// Play all steps in the pattern
 		for stepIdx := 0; stepIdx < numSteps; stepIdx++ {
 			// Check for stop signal
@@ -168,6 +179,16 @@ func (e *Engine) playbackLoop() {
 						fmt.Printf("Error sending Note Off (retrigger): %v\n", err)
 					}
 					delete(activeNotes, step.Note)
+				}
+
+				// Send CC messages for this step before Note On (ensures parameters are set before note triggers)
+				if len(step.CCValues) > 0 {
+					for ccNum, value := range step.CCValues {
+						err := e.midiOut.SendCC(channel, uint8(ccNum), uint8(value))
+						if err != nil {
+							fmt.Printf("Error sending CC#%d: %v\n", ccNum, err)
+						}
+					}
 				}
 
 				// Send Note On with humanized velocity

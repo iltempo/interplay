@@ -73,6 +73,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleSwing(parts)
 	case "length":
 		return h.handleLength(parts)
+	case "cc":
+		return h.handleCC(parts)
 	case "show":
 		return h.handleShow(parts)
 	case "verbose":
