@@ -1,0 +1,18 @@
+# Warning test - demonstrates destructive operation warnings
+# Usage: ./interplay --script test_warnings.txt
+#        OR: cat test_warnings.txt | ./interplay
+
+# Create and save a pattern
+clear
+set 1 C3
+set 5 G3
+save warning-test
+
+# Try to save again - should warn about overwrite
+save warning-test
+
+# Delete the pattern - should warn about permanent deletion
+delete warning-test
+
+# Exit cleanly
+exit

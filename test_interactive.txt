@@ -1,0 +1,30 @@
+# Interactive continuation test
+# Usage: cat test_interactive.txt - | ./interplay
+#        Note the dash (-) after the filename!
+#
+# This sets up a pattern, then lets you continue interactively
+
+# Clear and set up a foundation
+clear
+tempo 95
+
+# Create a basic pattern
+set 1 C3 vel:120
+set 5 C3 vel:100
+set 9 G2 vel:110
+set 13 C3 vel:105
+
+# Add subtle humanization
+humanize velocity 5
+humanize timing 8
+
+# Show what we've got so far
+show
+
+# Script ends here - you can now add more commands interactively!
+# Try these commands at the prompt:
+#   set 7 D#2 vel:90        (add a passing note)
+#   swing 50                (add groove)
+#   tempo 120               (speed it up)
+#   save my-interactive     (save your creation)
+#   quit                    (exit when done)
