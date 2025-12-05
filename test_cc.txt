@@ -3,35 +3,6 @@
 #        OR: cat test_cc.txt | ./interplay
 
 # Clear and start fresh
-clear
-tempo 90
+tempo 60
 
-# Create a minimal pattern
-set 1 C2 vel:127
-set 5 G1 vel:110
-set 9 C2 vel:120
-set 13 F1 vel:115
-
-# Add per-step CC automation for filter sweep
-# CC#74 is typically filter cutoff on many synths
-cc-step 1 74 127
-cc-step 5 74 90
-cc-step 9 74 60
-cc-step 13 74 100
-
-# Add resonance variation
-# CC#71 is typically filter resonance
-cc-step 1 71 40
-cc-step 9 71 80
-
-# Show the pattern
-show
-
-# Show CC automation
-cc-show
-
-# Save pattern with CC automation
-save cc-sweep-test
-
-# Script ends - playback continues with filter sweep
-# Press Ctrl+C to stop when done
+ai play a doomy bass pattern with long sustain in a minor key with 32 steps
