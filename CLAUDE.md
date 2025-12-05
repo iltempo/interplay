@@ -254,11 +254,45 @@ Future extensions can add: velocity, gate length, synth parameters per step
 - `clear-chat` command resets conversation context
 - Empty line (Enter) shows current pattern
 
-### Phase 4: MIDI CC Parameter Control (In Progress)
+### Phase 4: Batch/Script Mode ✅ (Completed)
+- ✅ Stdin detection for piped input vs terminal
+- ✅ `--script` flag for explicit file execution
+- ✅ Comment handling (lines starting with `#`)
+- ✅ Error tracking with graceful continuation
+- ✅ Command echo for progress feedback
+- ✅ Exit command recognition for controlled termination
+- ✅ Performance tool paradigm: scripts setup state, playback continues
+
+**Batch Mode Features:**
+- Pipe commands from files: `cat commands.txt | ./interplay`
+- Interactive continuation: `cat commands.txt - | ./interplay`
+- Script file flag: `./interplay --script commands.txt`
+- Pre-execution validation detects syntax errors
+- Graceful error handling: log errors, continue execution
+- Real-time progress: echo commands as they execute
+- Exit control: explicit `exit` command or continue playing
+- AI commands work inline: `ai make it darker` in scripts
+
+**Usage Examples:**
+```bash
+# Pipe commands and continue with playback
+echo "set 1 C4" | ./interplay
+
+# Pipe commands then interact
+cat setup.txt - | ./interplay
+
+# Execute script file
+./interplay --script performance-setup.txt
+
+# Script with AI commands
+echo -e "set 1 C3\nai add tension\nshow" | ./interplay
+```
+
+### Phase 5: MIDI CC Parameter Control (In Progress)
 
 **Philosophy**: Build generic MIDI CC foundation first, then layer synth-specific intelligence through profiles in later phases.
 
-**Phase 4a: Generic MIDI CC Control** (Current Focus)
+**Phase 5a: Generic MIDI CC Control** (Current Focus)
 - Send any MIDI CC (Control Change) message: CC number 0-127, value 0-127
 - Per-step CC automation (like velocity/gate): different CC values per step
 - Multiple CC parameters per step (filter + resonance + envelope on same step)
@@ -284,7 +318,7 @@ cc-show                          # Display all active CC automations
 > save dark-sweep
 ```
 
-**Phase 4b: Synth Profile System** (Future)
+**Phase 5b: Synth Profile System** (Future)
 - Auto-detect connected synthesizer (MIDI device name matching)
 - Load synth profiles from `profiles/` directory
 - Profile format: JSON with CC mappings, parameter names, musical context
@@ -292,14 +326,14 @@ cc-show                          # Display all active CC automations
 - AI uses profile to understand synth capabilities
 - Ships with hand-crafted profiles: Waldorf Robot, generic subtractive synth
 
-**Phase 4c: AI Sound Design Intelligence** (Future)
+**Phase 5c: AI Sound Design Intelligence** (Future)
 - Profile-aware natural language: "make it darker" → AI knows which CC
 - Musical intent mapping: "add aggression" → increase resonance
 - Parameter automation suggestions: "add movement" → LFO or filter sweep
 - Creative dissonance: "make it harsher" → extreme resonance values
 - Synth-specific techniques based on profile context
 
-**Phase 4d: Interplay Profile Builder** (Separate Tool - Future)
+**Phase 5d: Interplay Profile Builder** (Separate Tool - Future)
 - Standalone application for creating synth profiles
 - AI-powered PDF extraction from MIDI implementation charts
 - Interactive profile refinement and testing
@@ -381,7 +415,7 @@ type Step struct {
 - AI integration point: translate "make it darker" → `cc-step` commands
 - Profile format already designed, just not implemented yet
 
-### Phase 5: Live Performance Features
+### Phase 6: Live Performance Features
 - MIDI controller input (separate MIDI controller device)
     - Play notes on controller to add them to the pattern in real-time
     - Use knobs/faders to control synth parameters

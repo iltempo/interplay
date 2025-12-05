@@ -1,0 +1,7 @@
+0
+reset
+ai
+double the pattern length
+add a lead melody using the CC parameters with a filter sweep
+show
+cc-show

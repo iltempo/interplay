@@ -1,0 +1,28 @@
+# Basic pattern test
+# Create a simple bass line
+set 1 C3 vel:127
+set 5 C3 vel:110
+set 9 G2 vel:120
+set 13 C3 vel:115
+
+# Add some variation
+set 11 D#2 vel:100
+
+# Set gate lengths
+gate 1 85
+gate 5 60
+gate 9 80
+
+# Add humanization
+humanize velocity 8
+humanize timing 10
+humanize gate 5
+
+# Add swing
+swing 50
+
+# Show the result
+show
+
+# Save
+save basic-bass
