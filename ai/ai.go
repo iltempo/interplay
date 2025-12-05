@@ -32,6 +32,17 @@ Available commands:
 - save <name>: Save current pattern
 - load <name>: Load a saved pattern
 
+UNDERSTANDING DURATION AND GATE (critical for longer notes):
+- Duration (dur): How many steps the note SPANS (1-%d). dur:1=16th note, dur:4=quarter note, dur:8=half note
+- Gate: What PERCENTAGE of the duration the note actually sounds (1-100%%)
+- Formula: soundingSteps = duration × (gate / 100), minimum 1 step
+- IMPORTANT: For single-step notes (dur:1), gate has NO effect because minimum is 1 step
+- Examples:
+  - dur:4 gate:100 = note sounds for all 4 steps (legato)
+  - dur:4 gate:50 = note sounds for 2 steps, silent for 2 steps (detached)
+  - dur:4 gate:25 = note sounds for 1 step, silent for 3 steps (staccato)
+  - dur:1 gate:50 = still sounds for 1 step (gate has no effect on single-step notes)
+
 Parameter limits (IMPORTANT: values are plain numbers, NO %% symbols in commands):
 - Steps: 1-%d (pattern length)
 - Notes: C0-C8 (e.g., C3, D#4, Bb2)
@@ -89,6 +100,17 @@ Available commands in Interplay:
 - verbose [on|off]: Toggle step-by-step output
 - ai: Enter AI session mode (you!)
 
+UNDERSTANDING DURATION AND GATE (critical for longer notes):
+- Duration (dur): How many steps the note SPANS (1-%d). dur:1=16th note, dur:4=quarter note, dur:8=half note
+- Gate: What PERCENTAGE of the duration the note actually sounds (1-100%%)
+- Formula: soundingSteps = duration × (gate / 100), minimum 1 step
+- IMPORTANT: For single-step notes (dur:1), gate has NO effect because minimum is 1 step
+- Examples:
+  - dur:4 gate:100 = note sounds for all 4 steps (legato)
+  - dur:4 gate:50 = note sounds for 2 steps, silent for 2 steps (detached)
+  - dur:4 gate:25 = note sounds for 1 step, silent for 3 steps (staccato)
+  - dur:1 gate:50 = still sounds for 1 step (gate has no effect on single-step notes)
+
 Parameter limits (IMPORTANT: values are plain numbers, NO %% symbols in commands):
 - Steps: 1-%d (pattern length)
 - Notes: C0-C8 (e.g., C3, D#4, Bb2)
@@ -138,6 +160,17 @@ Available commands:
 - delete <name>: Delete a saved pattern
 - show: Display current pattern
 - verbose [on|off]: Toggle step-by-step output
+
+UNDERSTANDING DURATION AND GATE (critical for longer notes):
+- Duration (dur): How many steps the note SPANS (1-%d). dur:1=16th note, dur:4=quarter note, dur:8=half note
+- Gate: What PERCENTAGE of the duration the note actually sounds (1-100%%)
+- Formula: soundingSteps = duration × (gate / 100), minimum 1 step
+- IMPORTANT: For single-step notes (dur:1), gate has NO effect because minimum is 1 step
+- Examples:
+  - dur:4 gate:100 = note sounds for all 4 steps (legato)
+  - dur:4 gate:50 = note sounds for 2 steps, silent for 2 steps (detached)
+  - dur:4 gate:25 = note sounds for 1 step, silent for 3 steps (staccato)
+  - dur:1 gate:50 = still sounds for 1 step (gate has no effect on single-step notes)
 
 Parameter limits (IMPORTANT: values are plain numbers, NO %% symbols in commands):
 - Steps: 1-%d (pattern length)
@@ -202,7 +235,7 @@ func NewFromEnv() (*Client, error) {
 // GenerateCommands asks Claude to generate commands based on user request
 func (c *Client) GenerateCommands(ctx context.Context, userRequest string, p *sequence.Pattern) ([]string, error) {
 	patternLen := p.Length()
-	systemPrompt := fmt.Sprintf(commandSystemPromptTemplate, patternLen, patternLen)
+	systemPrompt := fmt.Sprintf(commandSystemPromptTemplate, patternLen, patternLen, patternLen)
 	userMessage := fmt.Sprintf("Current pattern:\n%s\n\nUser request: %s", p.String(), userRequest)
 
 	message, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
@@ -246,7 +279,7 @@ func (c *Client) GenerateCommands(ctx context.Context, userRequest string, p *se
 // Maintains conversation history for follow-up questions
 func (c *Client) Chat(ctx context.Context, question string, p *sequence.Pattern) (string, error) {
 	patternLen := p.Length()
-	systemPrompt := fmt.Sprintf(chatSystemPromptTemplate, patternLen, patternLen)
+	systemPrompt := fmt.Sprintf(chatSystemPromptTemplate, patternLen, patternLen, patternLen)
 
 	// Build user message with pattern context
 	userMessage := fmt.Sprintf("Current pattern:\n%s\n\n%s", p.String(), question)
@@ -300,7 +333,7 @@ type SessionResponse struct {
 // Returns the response message and any commands to execute
 func (c *Client) Session(ctx context.Context, userInput string, p *sequence.Pattern) (*SessionResponse, error) {
 	patternLen := p.Length()
-	systemPrompt := fmt.Sprintf(sessionSystemPromptTemplate, patternLen, patternLen)
+	systemPrompt := fmt.Sprintf(sessionSystemPromptTemplate, patternLen, patternLen, patternLen)
 
 	// Build user message with pattern context
 	userMessage := fmt.Sprintf("Current pattern:\n%s\n\n%s", p.String(), userInput)

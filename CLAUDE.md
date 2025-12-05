@@ -135,12 +135,22 @@ Initial focus is on exploration and playing around with the tool before consider
 **MIDI Output Configuration:**
 - Channel: 1 (MIDI channel 0 in code)
 - Velocity: Fixed at 100 (out of 127) initially
-- Gate length: 90% of step duration (leaves small gap between notes)
+
+**Note Duration and Gate (How Long Notes Play):**
+- **Duration**: How many steps the note spans (1-16). Default is 1 step.
+  - `dur:1` = note plays for 1 step (16th note at default tempo)
+  - `dur:4` = note plays for 4 steps (quarter note)
+  - `dur:8` = note plays for 8 steps (half note)
+- **Gate**: What percentage of the duration the note actually sounds (1-100%). Default is 90%.
+  - Applied as: `soundingSteps = duration × (gate / 100)`, minimum 1 step
+  - Example: `dur:4 gate:50` = note spans 4 steps but only sounds for 2 steps
+- **Important**: For single-step notes (duration=1), gate has no practical effect since the minimum is 1 step. Gate only affects notes with duration > 1.
+- To create staccato/short notes that span multiple steps: use low gate values (e.g., `dur:4 gate:25`)
+- To create legato/connected notes: use high gate values (e.g., `dur:4 gate:100`)
 
 **Timing Calculations:**
 - At 80 BPM: 16th note = 187.5ms
 - Step timing = (60,000ms / BPM) / 4 (for 16th notes)
-- Note Off sent ~10ms before next step to avoid overlap
 
 **Note Representation:**
 - Input format: "C4", "D#5", "Bb3", etc.
