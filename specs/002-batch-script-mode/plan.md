@@ -13,7 +13,7 @@ Add batch/script mode execution for Interplay commands via stdin piping and `--s
 
 **Language/Version**: Go 1.25.4
 **Primary Dependencies**:
-- `golang.org/x/term` (terminal detection for stdin mode)
+- `github.com/mattn/go-isatty` (cross-platform terminal detection for stdin mode, supports Cygwin/Git Bash)
 - `flag` package (stdlib, command-line parsing)
 - `bufio` package (stdlib, line-by-line reading)
 - Existing: `gitlab.com/gomidi/midi/v2`, `anthropic-sdk-go`
@@ -63,8 +63,8 @@ Add batch/script mode execution for Interplay commands via stdin piping and `--s
 
 ### 🟡 Technology Stack Compliance
 **Status**: PASS with addition
-**Addition**: `golang.org/x/term` for terminal detection (standard extended library, minimal dependency)
-**Rationale**: Required to distinguish piped input from terminal input. Well-maintained Go official package.
+**Addition**: `github.com/mattn/go-isatty` for terminal detection (cross-platform support including Cygwin/Git Bash)
+**Rationale**: Required to distinguish piped input from terminal input. Chosen over `golang.org/x/term` for superior cross-platform support (handles Windows Git Bash and Cygwin terminal detection).
 
 ### ✅ Architecture Constraints
 **Status**: PASS

@@ -11,9 +11,14 @@
 
 - Q: Should the system validate or restrict script content to prevent dangerous operations? → A: Basic validation - warn on potentially destructive operations (e.g., delete commands, save operations that overwrite existing patterns)
 - Q: How should AI commands behave when executed in batch scripts? → A: Execute inline - `ai <prompt>` works normally in batch mode (note: may take several seconds per AI command)
-- Q: When should batch execution stop vs. continue after errors? → A: Pre-validate scripts for obvious command errors before execution; during execution, gracefully skip failing commands (e.g., AI errors) while logging them clearly and continuing with remaining commands
+- Q: When should batch execution stop vs. continue after errors? → A: Use runtime validation with graceful continuation - invalid commands are logged as errors but script execution continues with remaining commands (pragmatic approach, simpler than pre-execution validation)
 - Q: What feedback should users receive during batch script execution? → A: Progress with command echo - show each command as it executes plus results/errors (can be refined in later iterations)
 - Q: How should exit codes reflect partial script failures? → A: Scripts set up performance state then keep program running (playback loop continues); exit 0 only if script contains explicit `exit` command with no failures; exit 1 if any command failed; otherwise program continues running after script completes
+
+### Implementation Notes
+
+- **Validation Strategy**: Runtime validation chosen over pre-execution validation for simplicity. Commands are validated as they execute, errors logged, execution continues. This aligns with the graceful continuation requirement and avoids complex syntax analysis.
+- **Terminal Detection**: `github.com/mattn/go-isatty` chosen over `golang.org/x/term` for superior cross-platform support (handles Windows Git Bash and Cygwin terminal detection reliably).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -67,7 +72,7 @@ Users can run the application with a script file argument (e.g., `./interplay --
 
 ### Edge Cases
 
-- What happens when a script contains invalid commands? (Pre-execution validation detects and reports syntax errors before any execution begins)
+- What happens when a script contains invalid commands? (Runtime validation with graceful continuation - invalid commands are logged as errors but script execution continues with remaining commands)
 - How does the system handle very large script files (1000+ commands)? (Should process all commands without memory issues or timeouts)
 - What happens when stdin is closed unexpectedly during batch execution? (Application should complete processing buffered commands and exit cleanly)
 - How does the application handle command failures during execution (e.g., AI API errors, file not found)? (Log error clearly, skip the failing command, continue with remaining commands)
@@ -82,7 +87,7 @@ Users can run the application with a script file argument (e.g., `./interplay --
 - **FR-003**: System MUST ignore lines beginning with `#` as comments in piped input
 - **FR-004**: System MUST continue to interactive mode after processing piped commands when stdin remains open (e.g., `cat file - | app`)
 - **FR-005**: System MUST continue running with playback loop active after processing all piped commands when stdin closes, unless script contains explicit `exit` command (e.g., `cat file | app`)
-- **FR-006**: System MUST perform pre-execution validation to detect obvious command errors (invalid syntax, unknown commands) before executing any commands
+- **FR-006**: System MUST validate commands during execution with graceful continuation (runtime validation) - invalid commands logged as errors, execution continues with remaining commands
 - **FR-006a**: System MUST report command errors clearly during execution, log the error, and continue processing remaining commands in batch mode
 - **FR-007**: System MUST exit with code 0 when script contains explicit `exit` command and no errors occurred; exit with code 1 if any command failed; otherwise continue running after script completes
 - **FR-008**: System MUST support `--script <filepath>` flag to execute commands from a file
