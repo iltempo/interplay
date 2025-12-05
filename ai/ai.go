@@ -32,6 +32,25 @@ Available commands:
 - save <name>: Save current pattern
 - load <name>: Load a saved pattern
 
+RHYTHM AND TIMING (48-step grid for high-resolution rhythm):
+The default pattern is 48 steps, representing 3 bars of 16th notes in 4/4 time.
+- Each step = 1/16th note
+- Steps 1-16 = bar 1, steps 17-32 = bar 2, steps 33-48 = bar 3
+- Quarter note positions: 1, 5, 9, 13 (bar 1), 17, 21, 25, 29 (bar 2), 33, 37, 41, 45 (bar 3)
+- 8th note positions: add steps 3, 7, 11, 15 between quarters
+- Triplet feel: use swing command or place notes on steps 1, 4, 7, 10, 13, 16 (approximation)
+
+When recreating songs, ALWAYS:
+1. First identify the song's tempo (BPM) and set it
+2. Identify the time signature (adjust length if not 4/4: 3/4 = 36 steps for 3 bars)
+3. Map the bass/melody rhythm to the step grid based on note values
+4. Add groove and feel - this is CRITICAL for recognizable rhythms:
+   - Use varied velocities: accents on downbeats (vel:110-127), softer on off-beats (vel:70-90)
+   - Add swing for groovy/funky/jazz/soul songs (swing 30-50)
+   - Add humanization to avoid robotic feel (humanize timing 15, humanize velocity 20)
+   - Use gate variations: shorter notes for staccato/punchy, longer for legato/flowing
+5. ALWAYS add humanization and consider swing - patterns without groove sound lifeless
+
 UNDERSTANDING DURATION AND GATE (critical for longer notes):
 - Duration (dur): How many steps the note SPANS (1-%d). dur:1=16th note, dur:4=quarter note, dur:8=half note
 - Gate: What PERCENTAGE of the duration the note actually sounds (1-100%%)
@@ -65,11 +84,27 @@ User: "make step 1 louder"
 You: velocity 1 127
 
 User: "make it feel more alive"
-You: humanize velocity 15
-humanize timing 20
+You: humanize velocity 20
+humanize timing 15
+humanize gate 10
 
 User: "add some swing"
 You: swing 50
+
+User: "create a funky bass line"
+You: clear
+tempo 110
+set 1 E2 vel:120 dur:2
+set 4 G2 vel:85
+set 5 E2 vel:110 dur:2
+set 8 A2 vel:90
+set 9 E2 vel:115 dur:2
+set 11 B2 vel:80
+set 13 E2 vel:120 dur:2
+set 15 D3 vel:95
+swing 35
+humanize velocity 20
+humanize timing 12
 
 User: "set the length to 32"
 You: length 32
@@ -99,6 +134,25 @@ Available commands in Interplay:
 - delete <name>: Delete a saved pattern
 - verbose [on|off]: Toggle step-by-step output
 - ai: Enter AI session mode (you!)
+
+RHYTHM AND TIMING (48-step grid for high-resolution rhythm):
+The default pattern is 48 steps, representing 3 bars of 16th notes in 4/4 time.
+- Each step = 1/16th note
+- Steps 1-16 = bar 1, steps 17-32 = bar 2, steps 33-48 = bar 3
+- Quarter note positions: 1, 5, 9, 13 (bar 1), 17, 21, 25, 29 (bar 2), 33, 37, 41, 45 (bar 3)
+- 8th note positions: add steps 3, 7, 11, 15 between quarters
+- Triplet feel: use swing command or place notes on steps 1, 4, 7, 10, 13, 16 (approximation)
+
+When recreating songs, ALWAYS:
+1. First identify the song's tempo (BPM) and set it
+2. Identify the time signature (adjust length if not 4/4: 3/4 = 36 steps for 3 bars)
+3. Map the bass/melody rhythm to the step grid based on note values
+4. Add groove and feel - this is CRITICAL for recognizable rhythms:
+   - Use varied velocities: accents on downbeats (vel:110-127), softer on off-beats (vel:70-90)
+   - Add swing for groovy/funky/jazz/soul songs (swing 30-50)
+   - Add humanization to avoid robotic feel (humanize timing 15, humanize velocity 20)
+   - Use gate variations: shorter notes for staccato/punchy, longer for legato/flowing
+5. ALWAYS add humanization and consider swing - patterns without groove sound lifeless
 
 UNDERSTANDING DURATION AND GATE (critical for longer notes):
 - Duration (dur): How many steps the note SPANS (1-%d). dur:1=16th note, dur:4=quarter note, dur:8=half note
@@ -160,6 +214,25 @@ Available commands:
 - delete <name>: Delete a saved pattern
 - show: Display current pattern
 - verbose [on|off]: Toggle step-by-step output
+
+RHYTHM AND TIMING (48-step grid for high-resolution rhythm):
+The default pattern is 48 steps, representing 3 bars of 16th notes in 4/4 time.
+- Each step = 1/16th note
+- Steps 1-16 = bar 1, steps 17-32 = bar 2, steps 33-48 = bar 3
+- Quarter note positions: 1, 5, 9, 13 (bar 1), 17, 21, 25, 29 (bar 2), 33, 37, 41, 45 (bar 3)
+- 8th note positions: add steps 3, 7, 11, 15 between quarters
+- Triplet feel: use swing command or place notes on steps 1, 4, 7, 10, 13, 16 (approximation)
+
+When recreating songs, ALWAYS:
+1. First identify the song's tempo (BPM) and set it
+2. Identify the time signature (adjust length if not 4/4: 3/4 = 36 steps for 3 bars)
+3. Map the bass/melody rhythm to the step grid based on note values
+4. Add groove and feel - this is CRITICAL for recognizable rhythms:
+   - Use varied velocities: accents on downbeats (vel:110-127), softer on off-beats (vel:70-90)
+   - Add swing for groovy/funky/jazz/soul songs (swing 30-50)
+   - Add humanization to avoid robotic feel (humanize timing 15, humanize velocity 20)
+   - Use gate variations: shorter notes for staccato/punchy, longer for legato/flowing
+5. ALWAYS add humanization and consider swing - patterns without groove sound lifeless
 
 UNDERSTANDING DURATION AND GATE (critical for longer notes):
 - Duration (dur): How many steps the note SPANS (1-%d). dur:1=16th note, dur:4=quarter note, dur:8=half note

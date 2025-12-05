@@ -268,7 +268,7 @@ func (h *Handler) handleReset(parts []string) error {
 	// Copy it into the current pattern
 	h.pattern.CopyFrom(defaultPattern)
 
-	fmt.Println("Reset to default 16-step pattern")
+	fmt.Printf("Reset to default %d-step pattern\n", sequence.DefaultPatternLength)
 	return nil
 }
 
@@ -851,7 +851,7 @@ func (h *Handler) handleHelp(parts []string) error {
   cc-show                 Display all CC automation in table format
   length <steps>          Set pattern length (e.g., 'length 32')
   clear                   Clear all steps to rests
-  reset                   Reset to default 16-step pattern
+  reset                   Reset to default pattern
   tempo <bpm>             Change tempo (e.g., 'tempo 120')
   show                    Display current pattern (CC automation shown in brackets)
   verbose [on|off]        Toggle or set verbose step output

@@ -7,7 +7,9 @@ import (
 )
 
 // DefaultPatternLength is the default length for a new pattern.
-const DefaultPatternLength = 16
+// 48 steps provides higher rhythmic resolution (triplets, complex rhythms)
+// while still representing a manageable loop length.
+const DefaultPatternLength = 48
 
 // Step represents a single step in the sequence
 type Step struct {

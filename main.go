@@ -143,9 +143,8 @@ func main() {
 	defer midiOut.Close()
 
 	// Create initial pattern (starts with silence - all rests)
-	// Use 4 steps (1 beat) for faster startup, especially important for batch scripts
-	// User can extend with 'length' command if needed
-	initialPattern := sequence.New(4)
+	// 48 steps = 3 bars, providing enough resolution for complex rhythms
+	initialPattern := sequence.New(sequence.DefaultPatternLength)
 
 	// Create playback engine
 	engine := playback.New(midiOut, initialPattern)

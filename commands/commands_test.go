@@ -129,10 +129,14 @@ func TestHandleReset(t *testing.T) {
 		t.Errorf("ProcessCommand('reset') unexpected error: %v", err)
 	}
 
-	// Check that pattern has the default notes (new pattern starts with C2)
+	// Check that pattern is reset to default (all rests, clean slate)
 	step1, _ := pattern.GetStep(1)
-	if step1.IsRest || step1.Note != 36 {
-		t.Errorf("After reset, step 1 should be C2 (note 36), got note %d", step1.Note)
+	if !step1.IsRest {
+		t.Errorf("After reset, step 1 should be a rest, got note %d", step1.Note)
+	}
+	// Also verify the pattern length is reset to default
+	if pattern.Length() != sequence.DefaultPatternLength {
+		t.Errorf("After reset, pattern length should be %d, got %d", sequence.DefaultPatternLength, pattern.Length())
 	}
 }
 

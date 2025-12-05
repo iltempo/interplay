@@ -65,10 +65,10 @@ This project is being developed collaboratively with an emphasis on learning Go 
 
 **Example Interaction:**
 ```
-Question: "Why use an array instead of a slice for steps?"
-Answer: "Arrays have fixed size, slices are dynamic. For our fixed 16 steps, 
-         array is simpler. But if we want variable length later, we'd use a slice."
-Decision: Start simple now, refactor when needed - or plan ahead if preferred.
+Question: "Why 48 steps as the default pattern length?"
+Answer: "48 steps = 3 bars of 16th notes. This gives enough resolution for triplets
+         and complex rhythms while staying manageable. Use 'length' command to adjust."
+Decision: Higher resolution by default, easily adjustable via command.
 ```
 
 ## Project Goal
@@ -99,14 +99,14 @@ Initial focus is on exploration and playing around with the tool before consider
 - Thread-safe pattern state shared between playback and command handler
 
 **Initial Implementation (Phase 1):**
-- 1 bar = 16 steps (16th notes)
+- Default 48 steps = 3 bars of 16th notes (higher rhythmic resolution for complex patterns)
 - 80 BPM default tempo
 - Each step: a note (e.g., C4, D#4) OR a rest/silence
 - All notes same duration/gate initially
 - Visual feedback: simple console output showing notes as they play
 
 **Initial Command Set:**
-- `set <step> <note>` - set step 1-16 to a note (e.g., `set 1 C4`)
+- `set <step> <note>` - set step to a note (e.g., `set 1 C4`)
 - `rest <step>` - make step silent
 - `clear` - reset all to rests
 - `tempo <bpm>` - change BPM
@@ -137,7 +137,7 @@ Initial focus is on exploration and playing around with the tool before consider
 - Velocity: Fixed at 100 (out of 127) initially
 
 **Note Duration and Gate (How Long Notes Play):**
-- **Duration**: How many steps the note spans (1-16). Default is 1 step.
+- **Duration**: How many steps the note spans (1 to pattern length). Default is 1 step.
   - `dur:1` = note plays for 1 step (16th note at default tempo)
   - `dur:4` = note plays for 4 steps (quarter note)
   - `dur:8` = note plays for 8 steps (half note)
@@ -168,16 +168,15 @@ Initial focus is on exploration and playing around with the tool before consider
 ### Phase 1: Simple Pattern Loop (Current Focus)
 - List available MIDI ports
 - Send test notes to verify Waldorf receives them
-- Implement 16-step pattern (1 bar at 80 BPM)
+- Implement 48-step pattern (3 bars at 80 BPM) for higher rhythmic resolution
 - Background playback loop with pattern state
 - Simple commands: set notes, add rests, change tempo
 - Changes queued and applied at next loop iteration
 - Console output showing notes as they play
 
 **Default Starting Pattern:**
-- Steps 1, 5, 9, 13: C3 (root note on quarter beats)
-- All other steps: rest
-- Creates a simple bass pulse that's immediately musical and easy to build upon
+- All steps: rest (clean slate for building patterns)
+- 48 steps provides room for complex rhythms, triplets, and multi-bar phrases
 
 ### Phase 2: Musical Enhancements ✅ (Completed)
 - ✅ Per-step duration/gate length
