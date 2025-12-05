@@ -93,12 +93,15 @@ func main() {
 
 	// Select MIDI port
 	var portIndex int
-	if len(ports) == 1 {
-		// Only one port, use it automatically
+	// Auto-select port 0 in batch mode (script file or piped input)
+	inBatchMode := *scriptFile != "" || !isTerminal()
+
+	if len(ports) == 1 || inBatchMode {
+		// Only one port, or batch mode - use port 0 automatically
 		portIndex = 0
 		fmt.Printf("\nUsing port %d: %s\n\n", portIndex, ports[portIndex])
 	} else {
-		// Multiple ports, let user choose
+		// Multiple ports in interactive mode, let user choose
 		fmt.Print("\n")
 		rl, err := readline.New(fmt.Sprintf("Select MIDI port (0-%d): ", len(ports)-1))
 		if err != nil {
