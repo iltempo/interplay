@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -538,6 +540,15 @@ func (h *Handler) handleSave(parts []string) error {
 	// Join remaining parts as the name (allows spaces)
 	name := strings.Join(parts[1:], " ")
 
+	// Check if pattern file already exists (warn about overwrite)
+	// Note: We replicate sanitization logic here since it's not exported
+	sanitized := strings.ReplaceAll(name, " ", "_")
+	filename := sanitized + ".json"
+	patternPath := filepath.Join(sequence.PatternsDir, filename)
+	if _, err := os.Stat(patternPath); err == nil {
+		fmt.Printf("⚠️  Warning: Pattern '%s' already exists and will be overwritten.\n", name)
+	}
+
 	// Warn if global CC values exist (they won't be saved)
 	globalCC := h.pattern.GetAllGlobalCC()
 	if len(globalCC) > 0 {
@@ -618,6 +629,9 @@ func (h *Handler) handleDelete(parts []string) error {
 
 	// Join remaining parts as the name (allows spaces)
 	name := strings.Join(parts[1:], " ")
+
+	// Warn about destructive operation
+	fmt.Printf("⚠️  Warning: This will permanently delete pattern '%s'.\n", name)
 
 	err := sequence.Delete(name)
 	if err != nil {
