@@ -270,4 +270,9 @@ Note: AI commands may take several seconds each. The script waits for completion
 
 ## Learn More
 
-See [CLAUDE.md](CLAUDE.md) for detailed development approach, architecture, and roadmap.
+**For Users:**
+- See [CLAUDE.md](CLAUDE.md) for detailed development approach, architecture, and roadmap
+
+**For Developers:**
+- See [Implementation Summary](specs/002-batch-script-mode/IMPLEMENTATION-SUMMARY.md) for batch/script mode feature documentation
+- See [Phase 5 Recommendations](specs/002-batch-script-mode/PHASE-5-RECOMMENDATIONS.md) for lessons learned and next phase planning guidance
