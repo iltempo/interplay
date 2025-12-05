@@ -396,6 +396,7 @@ type Step struct {
 
 ## Active Technologies
 - JSON files in `patterns/` directory (existing pattern persistence system) (001-midi-cc-control)
+- File system (`patterns/` directory for JSON pattern files) (002-batch-script-mode)
 
 ## Recent Changes
 - 001-midi-cc-control: Added Go 1.25.4

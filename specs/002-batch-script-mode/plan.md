@@ -1,78 +1,78 @@
 # Implementation Plan: Batch/Script Mode for Command Execution
 
-**Branch**: `002-batch-script-mode` | **Date**: 2024-12-05 | **Spec**: [spec.md](./spec.md)
+**Branch**: `002-batch-script-mode` | **Date**: 2025-12-05 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/002-batch-script-mode/spec.md`
 
 **Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/commands/plan.md` for the execution workflow.
 
 ## Summary
 
-Add support for executing commands from piped input or script files, enabling automated testing and batch command execution. Users can either pipe commands and continue with interactive mode (`cat file - | app`) or run batch scripts that exit automatically (`cat file | app`), and optionally use a `--script` flag for explicit file execution.
-
-**Key benefit**: Makes AI workflows scriptable and repeatable. With the `ai <prompt>` design, users can save creative AI experiments as scripts and replay them, share AI workflows with others, and document their creative process naturally.
+Add batch/script mode execution for Interplay commands via stdin piping and `--script` flag. This enables users to create reusable script files for performance setup (load patterns, configure settings) and testing automation. Scripts execute sequentially with pre-validation, graceful error handling, and real-time progress feedback. The application continues running with playback loop active after script completion unless an explicit `exit` command is present. This is a performance tool enhancement, not just batch processing.
 
 ## Technical Context
 
 **Language/Version**: Go 1.25.4
 **Primary Dependencies**:
-- `github.com/chzyer/readline` (current input handling, needs modification)
-- `os` package (stdin detection, file I/O)
-- `bufio` (line-by-line reading)
-- `flag` package (command-line argument parsing)
+- `golang.org/x/term` (terminal detection for stdin mode)
+- `flag` package (stdlib, command-line parsing)
+- `bufio` package (stdlib, line-by-line reading)
+- Existing: `gitlab.com/gomidi/midi/v2`, `anthropic-sdk-go`
 
-**Storage**: N/A (commands operate on existing pattern state)
+**Storage**: File system (`patterns/` directory for JSON pattern files)
 **Testing**: Standard Go testing (`go test ./...`), manual testing with script files
-**Target Platform**: macOS/Windows/Linux (same as existing)
-**Project Type**: Single Go CLI application
-**Performance Goals**: Process 1000+ commands without memory issues, minimal overhead (<10ms per command)
+**Target Platform**: Cross-platform CLI (macOS, Linux, Windows) - existing CGO requirements from rtmididrv
+**Project Type**: Single Go project (CLI application)
+**Performance Goals**: Execute 50-command script in <5 seconds (excluding MIDI/AI execution time)
 **Constraints**:
-- Must not break existing interactive mode behavior
-- Must detect stdin type (terminal vs pipe vs file)
-- Must maintain thread-safety with playback goroutine
-- Readline library currently causes immediate exit on EOF
+- Must not block playback goroutine during script execution
+- Pre-validation must complete before any command execution
+- Real-time progress feedback (command echo) required
 
-**Scale/Scope**: Feature affects only main.go input handling and commands/commands.go ReadLoop method
+**Scale/Scope**:
+- Support 1000+ command scripts without memory issues
+- Handle AI commands that may take 2-10 seconds each
+- Three execution modes: interactive, piped-then-interactive (`cat file - | app`), piped-then-continue (`cat file | app`)
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-### Principle I: Incremental Development ✅
-- **Status**: PASS
-- **Assessment**: Small, focused feature with clear implementation phases (detect stdin → handle piped input → add flag support)
-- **Justification**: Changes confined to input handling logic in main.go and commands package
+### ✅ I. Incremental Development
+**Status**: PASS
+**Rationale**: Feature adds stdin detection and batch processing without disrupting existing interactive mode. Can be built incrementally: (1) stdin detection, (2) batch processor, (3) script file flag, (4) pre-validation. Each step independently testable.
 
-### Principle II: Collaborative Decision-Making ✅
-- **Status**: PASS
-- **Assessment**: User explicitly requested this as a specification rather than quick fix, demonstrating thoughtful approach
-- **Justification**: User tried workarounds first, then requested formal specification when behavior wasn't working
+### ✅ II. Collaborative Decision-Making
+**Status**: PASS
+**Rationale**: No architectural changes - extends existing command processing with new input source. Trade-offs documented (continue vs. exit behavior, validation timing). Developer approved approach during clarification session.
 
-### Principle III: Musical Intelligence with Creative Freedom ✅
-- **Status**: PASS
-- **Assessment**: No impact on musical timing or playback continuity
-- **Justification**: Batch mode processes commands that queue pattern changes at loop boundaries (existing mechanism)
+### ✅ III. Musical Intelligence with Creative Freedom
+**Status**: PASS
+**Rationale**: Batch mode preserves all musical functionality. AI commands execute inline in scripts, maintaining musical intelligence. Pattern loop continues playing after script execution (performance tool paradigm). No impact on MIDI timing or playback goroutine.
 
-### Principle IV: Pattern-Based Simplicity ✅
-- **Status**: PASS
-- **Assessment**: Uses existing pattern modification API, no changes to synchronization primitive
-- **Justification**: Commands in batch mode use same queueing mechanism as interactive mode
+### ✅ IV. Pattern-Based Simplicity
+**Status**: PASS
+**Rationale**: Uses existing pattern loop synchronization. Script commands queue pattern changes at loop boundaries (existing mechanism). No changes to playback goroutine or mutex strategy. Batch execution happens in main goroutine.
 
-### Principle V: Learning-First Documentation ✅
-- **Status**: PASS
-- **Assessment**: Will document stdin detection, pipe handling, and Go idioms for interactive vs batch mode
-- **Justification**: Important learning topic: how CLI tools detect input source and adjust behavior
+### ✅ V. Learning-First Documentation
+**Status**: PASS
+**Rationale**: This plan documents stdin detection approach, Go idioms (bufio.Scanner, term.IsTerminal), and design rationale. Quickstart guide will provide implementation walkthrough. CLAUDE.md updated with batch mode in Phase listing.
 
-### Principle VI: AI-First Creativity ✅✅ (ENHANCED)
-- **Status**: PASS WITH ENHANCEMENT
-- **Assessment**: Batch mode ENABLES AI-first creativity by making AI workflows scriptable and repeatable
-- **Justification**: New `ai <prompt>` design removes mode switching - AI commands work seamlessly in both interactive and batch modes
-- **Impact**: This feature significantly enhances AI-first approach:
-  - AI workflows can be saved and replayed
-  - Creative experiments become reproducible
-  - Users can share AI prompts as scripts
-  - Natural language and native commands intermix naturally
+### ✅ VI. AI-First Creativity
+**Status**: PASS
+**Rationale**: AI commands (`ai <prompt>`) work identically in batch and interactive modes. Scripts can combine manual commands for precision with AI for creativity. Enables workflows like "set initial pattern, ask AI to add tension, save result."
 
-**GATE RESULT**: ✅ PASS - All principles satisfied, no violations to justify
+### 🟡 Technology Stack Compliance
+**Status**: PASS with addition
+**Addition**: `golang.org/x/term` for terminal detection (standard extended library, minimal dependency)
+**Rationale**: Required to distinguish piped input from terminal input. Well-maintained Go official package.
+
+### ✅ Architecture Constraints
+**Status**: PASS
+**Rationale**: All permanent modules unchanged. Adds stdin processing in main.go only. Commands package already handles command execution. No new goroutines or state machines.
+
+### ✅ Musical Constraints
+**Status**: PASS
+**Rationale**: Musical intelligence preserved - AI commands work in batch mode. Creative dissonance still supported. Default patterns, humanization, and swing unaffected.
 
 ## Project Structure
 
@@ -81,10 +81,11 @@ Add support for executing commands from piped input or script files, enabling au
 ```text
 specs/002-batch-script-mode/
 ├── plan.md              # This file (/speckit.plan command output)
-├── research.md          # Phase 0 output (/speckit.plan command)
-├── data-model.md        # Phase 1 output (/speckit.plan command)
-├── quickstart.md        # Phase 1 output (/speckit.plan command)
-├── contracts/           # Phase 1 output (/speckit.plan command)
+├── spec.md              # Feature specification (complete)
+├── research.md          # Phase 0 output (to be generated)
+├── data-model.md        # Phase 1 output (to be generated)
+├── quickstart.md        # Phase 1 output (to be generated)
+├── contracts/           # Phase 1 output (to be generated)
 │   ├── stdin-detection.md
 │   └── command-execution.md
 └── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
@@ -93,20 +94,35 @@ specs/002-batch-script-mode/
 ### Source Code (repository root)
 
 ```text
-# Single project structure (existing)
-main.go                  # MODIFY: Add stdin detection and flag parsing
+# Single Go project structure (existing)
+main.go                  # Modified: add stdin detection, flag parsing, batch processor
 commands/
-└── commands.go          # MODIFY: ReadLoop method to handle piped input
+├── commands.go          # Existing: command handler (minimal or no changes)
+├── set.go               # Existing: unchanged
+├── rest.go              # Existing: unchanged
+├── clear.go             # Existing: unchanged
+├── tempo.go             # Existing: unchanged
+├── show.go              # Existing: unchanged
+├── save.go              # Existing: may add overwrite warning
+├── load.go              # Existing: unchanged
+├── delete.go            # Existing: may add deletion warning
+└── [other commands]     # Existing: unchanged
 
-# New test files (already created)
-test_basic.txt
-test_cc.txt
+sequence/                # Existing: unchanged
+playback/                # Existing: unchanged
+midi/                    # Existing: unchanged
+ai/                      # Existing: unchanged
+
+patterns/                # Existing: pattern storage
+test_basic.txt           # Existing: example script
+test_cc.txt              # Existing: example script
 ```
 
-**Structure Decision**: Single Go CLI project. Changes isolated to main.go (input source detection and flag handling) and commands/commands.go (ReadLoop to support both piped and interactive input). No new packages required.
+**Structure Decision**: Single Go project with flat package structure (existing architecture). Batch mode logic added to main.go as helper functions (`isTerminal()`, `processBatchInput()`). Minimal changes to commands package for validation warnings. No new packages needed - this is input mode variation, not new domain logic.
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
+> No constitutional violations requiring justification.
 
-N/A - No constitutional violations
+All gates pass cleanly. The feature extends existing command processing with new input sources (stdin/file) without architectural changes or new dependencies beyond standard Go extended libraries.
+
