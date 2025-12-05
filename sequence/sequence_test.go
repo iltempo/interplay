@@ -1489,3 +1489,254 @@ func TestInvalidCCInJSON(t *testing.T) {
 		t.Errorf("Only valid CC entries should be loaded, got %d entries", len(p.Steps[0].CCValues))
 	}
 }
+
+// TestSetStepCC tests setting per-step CC automation
+func TestSetStepCC(t *testing.T) {
+	p := New(16)
+
+	// Valid CC
+	err := p.SetStepCC(1, 74, 127)
+	if err != nil {
+		t.Errorf("SetStepCC(1, 74, 127) unexpected error: %v", err)
+	}
+
+	// Verify it was set
+	value, ok := p.GetStepCC(1, 74)
+	if !ok {
+		t.Error("SetStepCC(1, 74, 127) did not set value")
+	}
+	if value != 127 {
+		t.Errorf("GetStepCC(1, 74) = %d, want 127", value)
+	}
+
+	// Invalid step
+	err = p.SetStepCC(0, 74, 100)
+	if err == nil {
+		t.Error("SetStepCC(0, 74, 100) should return error for invalid step")
+	}
+
+	// Invalid CC number
+	err = p.SetStepCC(1, 128, 100)
+	if err == nil {
+		t.Error("SetStepCC(1, 128, 100) should return error for invalid CC number")
+	}
+
+	// Invalid value
+	err = p.SetStepCC(1, 74, 128)
+	if err == nil {
+		t.Error("SetStepCC(1, 74, 128) should return error for invalid value")
+	}
+}
+
+// TestGetStepCC tests getting per-step CC values
+func TestGetStepCC(t *testing.T) {
+	p := New(16)
+
+	// Get non-existent CC
+	value, ok := p.GetStepCC(1, 74)
+	if ok {
+		t.Error("GetStepCC should return false for non-existent CC")
+	}
+
+	// Set and get
+	p.SetStepCC(1, 74, 100)
+	value, ok = p.GetStepCC(1, 74)
+	if !ok {
+		t.Error("GetStepCC should return true for existing CC")
+	}
+	if value != 100 {
+		t.Errorf("GetStepCC(1, 74) = %d, want 100", value)
+	}
+
+	// Multiple CCs on same step
+	p.SetStepCC(1, 71, 80)
+	value, ok = p.GetStepCC(1, 71)
+	if !ok || value != 80 {
+		t.Errorf("GetStepCC(1, 71) = (%d, %v), want (80, true)", value, ok)
+	}
+
+	// Different step
+	p.SetStepCC(5, 74, 20)
+	value, ok = p.GetStepCC(5, 74)
+	if !ok || value != 20 {
+		t.Errorf("GetStepCC(5, 74) = (%d, %v), want (20, true)", value, ok)
+	}
+}
+
+// TestClearStepCC tests clearing CC automation from steps
+func TestClearStepCC(t *testing.T) {
+	p := New(16)
+
+	// Set multiple CCs on step 1
+	p.SetStepCC(1, 74, 127)
+	p.SetStepCC(1, 71, 64)
+
+	// Clear specific CC
+	err := p.ClearStepCC(1, 74)
+	if err != nil {
+		t.Errorf("ClearStepCC(1, 74) unexpected error: %v", err)
+	}
+
+	// Verify CC#74 is cleared
+	_, ok := p.GetStepCC(1, 74)
+	if ok {
+		t.Error("CC#74 should be cleared from step 1")
+	}
+
+	// Verify CC#71 still exists
+	value, ok := p.GetStepCC(1, 71)
+	if !ok || value != 64 {
+		t.Error("CC#71 should still exist on step 1")
+	}
+
+	// Clear all CCs from step
+	err = p.ClearStepCC(1, -1)
+	if err != nil {
+		t.Errorf("ClearStepCC(1, -1) unexpected error: %v", err)
+	}
+
+	// Verify all CCs are cleared
+	_, ok = p.GetStepCC(1, 71)
+	if ok {
+		t.Error("All CCs should be cleared from step 1")
+	}
+
+	// CCValues should be nil after clearing all
+	if p.Steps[0].CCValues != nil {
+		t.Error("Step CCValues should be nil after clearing all")
+	}
+
+	// Clearing from step with no CC should not error
+	err = p.ClearStepCC(2, 74)
+	if err != nil {
+		t.Errorf("ClearStepCC on step with no CC should not error: %v", err)
+	}
+}
+
+// TestApplyGlobalCC tests converting global CC to per-step automation
+func TestApplyGlobalCC(t *testing.T) {
+	p := New(16)
+	p.Clear()
+
+	// Set some notes
+	p.SetNote(1, 60)
+	p.SetNote(5, 67)
+	p.SetNote(9, 72)
+
+	// Set global CC
+	p.SetGlobalCC(74, 100)
+
+	// Apply to all steps with notes
+	err := p.ApplyGlobalCC(74)
+	if err != nil {
+		t.Errorf("ApplyGlobalCC(74) unexpected error: %v", err)
+	}
+
+	// Verify steps with notes have CC
+	value, ok := p.GetStepCC(1, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 1 should have CC#74=100 after apply, got (%d, %v)", value, ok)
+	}
+
+	value, ok = p.GetStepCC(5, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 5 should have CC#74=100 after apply, got (%d, %v)", value, ok)
+	}
+
+	value, ok = p.GetStepCC(9, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 9 should have CC#74=100 after apply, got (%d, %v)", value, ok)
+	}
+
+	// Verify steps without notes don't have CC
+	_, ok = p.GetStepCC(2, 74)
+	if ok {
+		t.Error("Step 2 (rest) should not have CC after apply")
+	}
+
+	// Error if global CC not set
+	err = p.ApplyGlobalCC(71)
+	if err == nil {
+		t.Error("ApplyGlobalCC should error if global CC not set")
+	}
+}
+
+// TestApplyGlobalCCOverwrite tests that cc-apply overwrites existing values
+func TestApplyGlobalCCOverwrite(t *testing.T) {
+	p := New(16)
+	p.Clear()
+
+	// Set notes with existing CC automation
+	p.SetNote(1, 60)
+	p.SetStepCC(1, 74, 50) // Existing automation
+
+	// Set different global CC
+	p.SetGlobalCC(74, 100)
+
+	// Apply should overwrite
+	err := p.ApplyGlobalCC(74)
+	if err != nil {
+		t.Errorf("ApplyGlobalCC(74) unexpected error: %v", err)
+	}
+
+	// Verify value was overwritten
+	value, ok := p.GetStepCC(1, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 1 CC#74 should be overwritten to 100, got (%d, %v)", value, ok)
+	}
+}
+
+// TestCCDisplayInString verifies that CC automation is displayed in pattern String() output
+func TestCCDisplayInString(t *testing.T) {
+	p := New(16)
+
+	// Set notes with CC automation
+	p.SetNote(1, 48) // C3
+	p.SetStepCC(1, 74, 127)
+
+	p.SetNote(5, 55) // G3
+	p.SetStepCC(5, 74, 64)
+	p.SetStepCC(5, 71, 100) // Multiple CC on same step
+
+	// Get string representation
+	output := p.String()
+
+	// Verify CC indicators appear in output
+	if !contains(output, "C3") {
+		t.Error("Output should contain note C3")
+	}
+	if !contains(output, "[CC74:127]") {
+		t.Error("Output should contain [CC74:127] indicator for step 1")
+	}
+	if !contains(output, "G3") {
+		t.Error("Output should contain note G3")
+	}
+	// Step 5 should have both CC values displayed (order may vary due to map iteration)
+	if !contains(output, "CC74:64") {
+		t.Error("Output should contain CC74:64 indicator for step 5")
+	}
+	if !contains(output, "CC71:100") {
+		t.Error("Output should contain CC71:100 indicator for step 5")
+	}
+
+	// Verify rests don't show CC indicators (shouldn't have CC anyway)
+	p.SetRest(1)
+	output = p.String()
+	if contains(output, "[CC74:127]") {
+		t.Error("Rest steps should not show CC indicators")
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsCheck(s, substr))
+}
+
+func containsCheck(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

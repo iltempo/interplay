@@ -79,16 +79,16 @@ This is a single Go project with the following structure:
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Implement SetStepCC(step, ccNumber, value int) method with mutex protection in sequence/sequence.go
-- [ ] T020 [US2] Implement GetStepCC(step, ccNumber int) method in sequence/sequence.go
-- [ ] T021 [US2] Add cc-step command parser in commands/cc_step.go (parse: `cc-step <step> <cc-number> <value>`)
-- [ ] T022 [US2] Implement cc-step command handler with step bounds validation in commands/cc_step.go
-- [ ] T023 [US2] Update playback loop to iterate step.CCValues and send all CC messages for the step in playback/playback.go
-- [ ] T024 [US2] Implement cc-clear command parser in commands/cc_clear.go (parse: `cc-clear <step> [cc-number]`)
-- [ ] T025 [US2] Implement cc-clear command handler (clear specific CC or all CCs from step) in commands/cc_clear.go
-- [ ] T026 [US2] Implement cc-apply command parser in commands/cc_apply.go (parse: `cc-apply <cc-number>`)
-- [ ] T027 [US2] Implement cc-apply command handler (copy globalCC value to all steps with notes) in commands/cc_apply.go
-- [ ] T028 [US2] Add validation for cc-apply (error if no global value set for that CC number) in commands/cc_apply.go
+- [x] T019 [US2] Implement SetStepCC(step, ccNumber, value int) method with mutex protection in sequence/sequence.go
+- [x] T020 [US2] Implement GetStepCC(step, ccNumber int) method in sequence/sequence.go
+- [x] T021 [US2] Add cc-step command parser in commands/cc_step.go (parse: `cc-step <step> <cc-number> <value>`)
+- [x] T022 [US2] Implement cc-step command handler with step bounds validation in commands/cc_step.go
+- [x] T023 [US2] Update playback loop to iterate step.CCValues and send all CC messages for the step in playback/playback.go (done in Phase 2)
+- [x] T024 [US2] Implement cc-clear command parser in commands/cc_clear.go (parse: `cc-clear <step> [cc-number]`)
+- [x] T025 [US2] Implement cc-clear command handler (clear specific CC or all CCs from step) in commands/cc_clear.go
+- [x] T026 [US2] Implement cc-apply command parser in commands/cc_apply.go (parse: `cc-apply <cc-number>`)
+- [x] T027 [US2] Implement cc-apply command handler (copy globalCC value to all steps with notes) in commands/cc_apply.go
+- [x] T028 [US2] Add validation for cc-apply (error if no global value set for that CC number) in commands/cc_apply.go
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently - users can create per-step automation and convert global to per-step
 
@@ -102,12 +102,12 @@ This is a single Go project with the following structure:
 
 ### Implementation for User Story 3
 
-- [ ] T029 [US3] Verify Step JSON marshal includes cc field (already done in T007) - validation task
-- [ ] T030 [US3] Verify Step JSON unmarshal handles cc field (already done in T008) - validation task
-- [ ] T031 [US3] Test backward compatibility by loading pattern created before CC feature in sequence/pattern_test.go
-- [ ] T032 [US3] Implement save warning logic: check len(globalCC) > 0 in commands/save.go
-- [ ] T033 [US3] Add warning message display when saving with unsaved global CC in commands/save.go
-- [ ] T034 [US3] Update show command to display CC automation indicators for steps in commands/show.go
+- [x] T029 [US3] Verify Step JSON marshal includes cc field (already done in T007) - validation task
+- [x] T030 [US3] Verify Step JSON unmarshal handles cc field (already done in T008) - validation task
+- [x] T031 [US3] Test backward compatibility by loading pattern created before CC feature in sequence/sequence_test.go (TestCCBackwardCompatibility)
+- [x] T032 [US3] Implement save warning logic: check len(globalCC) > 0 in commands/commands.go
+- [x] T033 [US3] Add warning message display when saving with unsaved global CC in commands/commands.go
+- [x] T034 [US3] Update show command to display CC automation indicators for steps in sequence/sequence.go String() method
 - [ ] T035 [US3] Test save/load round-trip with CC data (manual test with MIDI hardware)
 
 **Checkpoint**: All user stories 1-3 should now be independently functional - patterns with CC automation persist correctly
@@ -122,10 +122,10 @@ This is a single Go project with the following structure:
 
 ### Implementation for User Story 4
 
-- [ ] T036 [US4] Implement cc-show command parser in commands/cc_show.go
-- [ ] T037 [US4] Implement cc-show display logic: iterate all steps and show CC values in table format in commands/cc_show.go
-- [ ] T038 [US4] Handle empty CC automation case (display "No CC automation configured") in commands/cc_show.go
-- [ ] T039 [US4] Enhance show command output to include CC indicators (e.g., [CC74:127]) in commands/show.go
+- [x] T036 [US4] Implement cc-show command parser in commands/cc_show.go
+- [x] T037 [US4] Implement cc-show display logic: iterate all steps and show CC values in table format in commands/cc_show.go
+- [x] T038 [US4] Handle empty CC automation case (display "No CC automation configured") in commands/cc_show.go
+- [x] T039 [US4] Enhance show command output to include CC indicators (e.g., [CC74:127]) in sequence/sequence.go String() method
 
 **Checkpoint**: All 4 user stories complete - users have full CC control with visual feedback
 
@@ -135,12 +135,12 @@ This is a single Go project with the following structure:
 
 **Purpose**: Enable AI to generate patterns with CC automation
 
-- [ ] T040 [P] Update AI system prompts to include cc command in ai/prompts.go or ai/system_prompt.go
-- [ ] T041 [P] Update AI system prompts to include cc-step command in ai/prompts.go or ai/system_prompt.go
-- [ ] T042 [P] Update AI system prompts to include cc-apply command in ai/prompts.go or ai/system_prompt.go
-- [ ] T043 [P] Update AI system prompts to include cc-clear command in ai/prompts.go or ai/system_prompt.go
-- [ ] T044 [P] Update AI system prompts to include cc-show command in ai/prompts.go or ai/system_prompt.go
-- [ ] T045 Add CC command examples to AI prompt templates in ai/prompts.go or ai/system_prompt.go
+- [x] T040 [P] Update AI system prompts to include cc command in ai/ai.go (all three prompt templates)
+- [x] T041 [P] Update AI system prompts to include cc-step command in ai/ai.go (all three prompt templates)
+- [x] T042 [P] Update AI system prompts to include cc-apply command in ai/ai.go (all three prompt templates)
+- [x] T043 [P] Update AI system prompts to include cc-clear command in ai/ai.go (all three prompt templates)
+- [x] T044 [P] Update AI system prompts to include cc-show command in ai/ai.go (all three prompt templates)
+- [x] T045 Add CC command examples to AI prompt templates in ai/ai.go (included in commandSystemPromptTemplate)
 - [ ] T046 Test AI mode: ask AI to "create a dark bass with filter sweep" and verify it generates CC commands
 
 **Checkpoint**: AI can now generate patterns with CC automation

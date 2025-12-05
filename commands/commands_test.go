@@ -381,3 +381,87 @@ func TestVelocityPreservation(t *testing.T) {
 		t.Error("Note not changed correctly")
 	}
 }
+
+// TestSetWithParameters tests the set command with vel, gate, and dur parameters
+func TestSetWithParameters(t *testing.T) {
+	pattern := sequence.New(sequence.DefaultPatternLength)
+	handler := New(pattern, &mockVerboseController{})
+
+	// Test set with all parameters
+	err := handler.ProcessCommand("set 1 C4 vel:120 gate:85 dur:3")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 1 C4 vel:120 gate:85 dur:3') unexpected error: %v", err)
+	}
+
+	step, _ := pattern.GetStep(1)
+	if step.Note != 60 {
+		t.Errorf("Note not set correctly, got %d, want 60", step.Note)
+	}
+	if step.Velocity != 120 {
+		t.Errorf("Velocity not set correctly, got %d, want 120", step.Velocity)
+	}
+	if step.Gate != 85 {
+		t.Errorf("Gate not set correctly, got %d, want 85", step.Gate)
+	}
+	if step.Duration != 3 {
+		t.Errorf("Duration not set correctly, got %d, want 3", step.Duration)
+	}
+
+	// Test set with only vel parameter
+	err = handler.ProcessCommand("set 2 D4 vel:100")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 2 D4 vel:100') unexpected error: %v", err)
+	}
+	step, _ = pattern.GetStep(2)
+	if step.Note != 62 || step.Velocity != 100 {
+		t.Error("Set with vel parameter failed")
+	}
+
+	// Test set with only gate parameter
+	err = handler.ProcessCommand("set 3 E4 gate:50")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 3 E4 gate:50') unexpected error: %v", err)
+	}
+	step, _ = pattern.GetStep(3)
+	if step.Note != 64 || step.Gate != 50 {
+		t.Error("Set with gate parameter failed")
+	}
+
+	// Test set with only dur parameter
+	err = handler.ProcessCommand("set 4 F4 dur:2")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 4 F4 dur:2') unexpected error: %v", err)
+	}
+	step, _ = pattern.GetStep(4)
+	if step.Note != 65 || step.Duration != 2 {
+		t.Error("Set with dur parameter failed")
+	}
+
+	// Test parameters in different order
+	err = handler.ProcessCommand("set 5 G4 dur:4 vel:110 gate:75")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 5 G4 dur:4 vel:110 gate:75') unexpected error: %v", err)
+	}
+	step, _ = pattern.GetStep(5)
+	if step.Note != 67 || step.Velocity != 110 || step.Gate != 75 || step.Duration != 4 {
+		t.Error("Set with parameters in different order failed")
+	}
+
+	// Test invalid velocity
+	err = handler.ProcessCommand("set 6 A4 vel:128")
+	if err == nil {
+		t.Error("ProcessCommand('set 6 A4 vel:128') should return error (velocity too high)")
+	}
+
+	// Test invalid gate
+	err = handler.ProcessCommand("set 6 A4 gate:101")
+	if err == nil {
+		t.Error("ProcessCommand('set 6 A4 gate:101') should return error (gate too high)")
+	}
+
+	// Test invalid parameter name
+	err = handler.ProcessCommand("set 6 A4 invalid:50")
+	if err == nil {
+		t.Error("ProcessCommand('set 6 A4 invalid:50') should return error (unknown parameter)")
+	}
+}
