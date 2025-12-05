@@ -58,10 +58,9 @@ func New(length int) *Pattern {
 		p.Steps[i] = Step{IsRest: true, Velocity: 100, Gate: 90, Duration: 1}
 	}
 
-	// Apply the default melodic pattern if the length is 16
-	if length == 16 {
-		p.applyDefault16StepPattern()
-	}
+	// Note: We used to apply a default melodic pattern for 16-step sequences,
+	// but starting with silence provides a cleaner slate for users to build upon,
+	// especially important for batch/script mode where unexpected sounds are jarring.
 
 	return p
 }

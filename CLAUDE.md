@@ -165,9 +165,10 @@ Initial focus is on exploration and playing around with the tool before consider
 - Console output showing notes as they play
 
 **Default Starting Pattern:**
-- Steps 1, 5, 9, 13: C3 (root note on quarter beats)
-- All other steps: rest
-- Creates a simple bass pulse that's immediately musical and easy to build upon
+- All steps: rest (silence)
+- Clean slate for users to build their own patterns
+- Use `set <step> <note>` commands or AI to quickly add notes
+- Previous default (C3 on beats) removed for cleaner UX, especially in batch/script mode
 
 ### Phase 2: Musical Enhancements ✅ (Completed)
 - ✅ Per-step duration/gate length

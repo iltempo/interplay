@@ -136,7 +136,7 @@ func main() {
 	}
 	defer midiOut.Close()
 
-	// Create initial pattern (default: C3 on beats)
+	// Create initial pattern (starts with silence - all rests)
 	initialPattern := sequence.New(sequence.DefaultPatternLength)
 
 	// Create playback engine

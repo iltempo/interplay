@@ -391,35 +391,20 @@ func TestDefaultPattern(t *testing.T) {
 		t.Errorf("Default pattern BPM = %d, want 80", p.BPM)
 	}
 
-	// Check expected notes in the new bass pattern
-	expectedNotes := map[int]struct {
-		note     uint8
-		duration int
-	}{
-		0:  {36, 3}, // Step 1:  C2 (long)
-		3:  {43, 1}, // Step 4:  G2 (short accent)
-		4:  {48, 4}, // Step 5:  C3 (sustained)
-		8:  {36, 2}, // Step 9:  C2 (medium)
-		10: {39, 1}, // Step 11: D#2 (passing note)
-		11: {41, 2}, // Step 12: F2 (medium)
-		14: {43, 1}, // Step 15: G2 (staccato)
-	}
-
+	// Check that default pattern starts with silence (all rests)
+	// This provides a clean slate for users to build their own patterns
 	for i := 0; i < DefaultPatternLength; i++ {
-		if expected, hasNote := expectedNotes[i]; hasNote {
-			if p.Steps[i].IsRest {
-				t.Errorf("Default pattern step %d should not be rest", i+1)
-			}
-			if p.Steps[i].Note != expected.note {
-				t.Errorf("Default pattern step %d note = %d, want %d", i+1, p.Steps[i].Note, expected.note)
-			}
-			if p.Steps[i].Duration != expected.duration {
-				t.Errorf("Default pattern step %d duration = %d, want %d", i+1, p.Steps[i].Duration, expected.duration)
-			}
-		} else {
-			if !p.Steps[i].IsRest {
-				t.Errorf("Default pattern step %d should be rest", i+1)
-			}
+		if !p.Steps[i].IsRest {
+			t.Errorf("Default pattern step %d should be rest (silence), but is not", i+1)
+		}
+		if p.Steps[i].Velocity != 100 {
+			t.Errorf("Default pattern step %d velocity = %d, want 100", i+1, p.Steps[i].Velocity)
+		}
+		if p.Steps[i].Gate != 90 {
+			t.Errorf("Default pattern step %d gate = %d, want 90", i+1, p.Steps[i].Gate)
+		}
+		if p.Steps[i].Duration != 1 {
+			t.Errorf("Default pattern step %d duration = %d, want 1", i+1, p.Steps[i].Duration)
 		}
 	}
 }
