@@ -642,17 +642,30 @@ func (h *Handler) handleDelete(parts []string) error {
 	return nil
 }
 
-// handleAI: ai - enter interactive AI session
+// handleAI: ai [prompt] - execute AI prompt inline or enter interactive session
 func (h *Handler) handleAI(parts []string) error {
 	// Check if AI client is available
 	if h.aiClient == nil {
 		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
 	}
 
-	if len(parts) != 1 {
-		return fmt.Errorf("usage: ai (enter interactive session)")
+	// Two modes:
+	// 1. "ai" (no args) - enter interactive session
+	// 2. "ai <prompt>" (with args) - execute inline (for batch scripts)
+
+	if len(parts) == 1 {
+		// Mode 1: Interactive session
+		return h.handleAIInteractive()
 	}
 
+	// Mode 2: Inline execution
+	// Join remaining parts as the prompt
+	prompt := strings.Join(parts[1:], " ")
+	return h.handleAIInline(prompt)
+}
+
+// handleAIInteractive enters an interactive AI session with readline
+func (h *Handler) handleAIInteractive() error {
 	// Clear any previous conversation history to start fresh
 	h.aiClient.ClearHistory()
 
@@ -699,30 +712,44 @@ func (h *Handler) handleAI(parts []string) error {
 		}
 
 		// Not a known command - send to AI
-		// Send the entire pattern object to the AI session
-		response, err := h.aiClient.Session(ctx, input, h.pattern)
-		if err != nil {
+		if err := h.executeAIRequest(ctx, input); err != nil {
 			fmt.Printf("AI error: %v\n", err)
-			continue
-		}
-
-		// Print AI response (clean up [EXECUTE] blocks for display)
-		displayMessage := cleanExecuteBlocks(response.Message)
-		fmt.Printf("\n%s\n", displayMessage)
-
-		// Execute any commands
-		if len(response.Commands) > 0 {
-			fmt.Printf("\nExecuting %d command(s):\n", len(response.Commands))
-			for _, cmd := range response.Commands {
-				fmt.Printf("  > %s\n", cmd)
-				if err := h.ProcessCommand(cmd); err != nil {
-					fmt.Printf("  Error: %v\n", err)
-				}
-			}
 		}
 
 		fmt.Println()
 	}
+}
+
+// handleAIInline executes a single AI prompt inline (for batch mode)
+func (h *Handler) handleAIInline(prompt string) error {
+	ctx := context.Background()
+	return h.executeAIRequest(ctx, prompt)
+}
+
+// executeAIRequest sends a prompt to AI and executes the response
+func (h *Handler) executeAIRequest(ctx context.Context, prompt string) error {
+	// Send the entire pattern object to the AI session
+	response, err := h.aiClient.Session(ctx, prompt, h.pattern)
+	if err != nil {
+		return err
+	}
+
+	// Print AI response (clean up [EXECUTE] blocks for display)
+	displayMessage := cleanExecuteBlocks(response.Message)
+	fmt.Printf("\n%s\n", displayMessage)
+
+	// Execute any commands
+	if len(response.Commands) > 0 {
+		fmt.Printf("\nExecuting %d command(s):\n", len(response.Commands))
+		for _, cmd := range response.Commands {
+			fmt.Printf("  > %s\n", cmd)
+			if err := h.ProcessCommand(cmd); err != nil {
+				fmt.Printf("  Error: %v\n", err)
+			}
+		}
+	}
+
+	return nil
 }
 
 // isKnownCommand checks if the input starts with a known command
@@ -832,7 +859,8 @@ func (h *Handler) handleHelp(parts []string) error {
   load <name>             Load a saved pattern (e.g., 'load bass_line')
   list                    List all saved patterns
   delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
-  ai                      Enter interactive AI session (AI: %s)
+  ai [prompt]             Execute AI prompt inline or enter interactive session (AI: %s)
+                          Usage: 'ai' to enter session, 'ai <prompt>' for inline execution
                           All commands work directly in AI mode.
                           Natural language is sent to AI for pattern changes.
                           Type 'exit' to return to command mode.
