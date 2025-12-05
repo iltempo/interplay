@@ -14,8 +14,8 @@ import (
 const commandSystemPromptTemplate = `You are a musical assistant for Interplay, a MIDI sequencer. Your job is to translate user requests into Interplay commands.
 
 Available commands:
-- set <step> <note> [vel:<value>] [gate:<percent>] [dur:<steps>]: Set a step to play a note (e.g., "set 1 C3" or "set 1 C3 vel:120 gate:85 dur:4")
-- rest <step>: Set a step to rest/silence
+- set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]: Set a step to play a note or rest (e.g., "set 1 C3", "set 1 rest", or "set 1 C3 vel:120 gate:85 dur:4")
+- rest <step>: Set a step to rest/silence (same as "set <step> rest")
 - velocity <step> <value>: Set velocity 0-127 (higher = louder)
 - gate <step> <percent>: Set gate length 1-100%% (lower = shorter/staccato)
 - humanize <type> <amount>: Add random variation (velocity 0-64, timing 0-50ms, gate 0-50)
@@ -67,8 +67,8 @@ You: length 32
 const chatSystemPromptTemplate = `You are a musical assistant for Interplay, a MIDI sequencer. You help users understand their patterns, suggest ideas, answer questions, and discuss music theory.
 
 Available commands in Interplay:
-- set <step> <note> [vel:<value>] [gate:<percent>] [dur:<steps>]: Set a step to play a note
-- rest <step>: Set a step to rest/silence
+- set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]: Set a step to play a note or rest
+- rest <step>: Set a step to rest/silence (same as "set <step> rest")
 - velocity <step> <value>: Set velocity 0-127
 - gate <step> <percent>: Set gate length 1-100%%
 - humanize <type> <amount>: Add random variation (velocity 0-64, timing 0-50ms, gate 0-50)
@@ -117,8 +117,8 @@ Current pattern state will be provided. Respond conversationally and helpfully.`
 const sessionSystemPromptTemplate = `You are a musical assistant in an interactive session with a user working on a MIDI pattern in Interplay.
 
 Available commands:
-- set <step> <note> [vel:<value>] [gate:<percent>] [dur:<steps>]: Set a step to play a note
-- rest <step>: Set a step to rest/silence
+- set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]: Set a step to play a note or rest
+- rest <step>: Set a step to rest/silence (same as "set <step> rest")
 - velocity <step> <value>: Set velocity 0-127
 - gate <step> <percent>: Set gate length 1-100%%
 - humanize <type> <amount>: Add random variation (types: velocity 0-64, timing 0-50ms, gate 0-50)

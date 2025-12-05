@@ -382,6 +382,42 @@ func TestVelocityPreservation(t *testing.T) {
 	}
 }
 
+// TestSetRest tests setting a step to rest using the set command
+func TestSetRest(t *testing.T) {
+	pattern := sequence.New(sequence.DefaultPatternLength)
+	handler := New(pattern, &mockVerboseController{})
+
+	// Set a note first
+	pattern.SetNote(1, 60)
+	step, _ := pattern.GetStep(1)
+	if step.IsRest {
+		t.Error("Step should have a note initially")
+	}
+
+	// Use set command to set rest
+	err := handler.ProcessCommand("set 1 rest")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 1 rest') unexpected error: %v", err)
+	}
+
+	step, _ = pattern.GetStep(1)
+	if !step.IsRest {
+		t.Error("set 1 rest should set step to rest")
+	}
+
+	// Test case insensitive
+	pattern.SetNote(2, 60)
+	err = handler.ProcessCommand("set 2 REST")
+	if err != nil {
+		t.Errorf("ProcessCommand('set 2 REST') unexpected error: %v", err)
+	}
+
+	step, _ = pattern.GetStep(2)
+	if !step.IsRest {
+		t.Error("set 2 REST should set step to rest (case insensitive)")
+	}
+}
+
 // TestSetWithParameters tests the set command with vel, gate, and dur parameters
 func TestSetWithParameters(t *testing.T) {
 	pattern := sequence.New(sequence.DefaultPatternLength)

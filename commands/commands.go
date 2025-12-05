@@ -106,11 +106,11 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 	}
 }
 
-// handleSet: set <step> <note> [vel:<value>] [gate:<percent>] [dur:<steps>]
+// handleSet: set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]
 func (h *Handler) handleSet(parts []string) error {
 	if len(parts) < 3 {
-		return fmt.Errorf("usage: set <step> <note> [vel:<value>] [gate:<percent>] [dur:<steps>]\n" +
-			"e.g., 'set 1 C4' or 'set 1 C4 vel:120 gate:85 dur:3'")
+		return fmt.Errorf("usage: set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]\n" +
+			"e.g., 'set 1 C4' or 'set 1 rest' or 'set 1 C4 vel:120 gate:85 dur:3'")
 	}
 
 	stepNum, err := strconv.Atoi(parts[1])
@@ -119,6 +119,17 @@ func (h *Handler) handleSet(parts []string) error {
 	}
 
 	noteName := parts[2]
+
+	// Check if user wants to set a rest
+	if strings.ToLower(noteName) == "rest" {
+		err := h.pattern.SetRest(stepNum)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Set step %d to rest\n", stepNum)
+		return nil
+	}
+
 	midiNote, err := sequence.NoteNameToMIDI(noteName)
 	if err != nil {
 		return err
@@ -774,11 +785,12 @@ func (h *Handler) handleHelp(parts []string) error {
 	patternLen := h.pattern.Length()
 
 	helpText := fmt.Sprintf(`Available commands:
-  set <step> <note> [vel:<val>] [gate:<%%>] [dur:<steps>]
-                          Set a step to play a note (e.g., 'set 1 C4')
+  set <step> <note|rest> [vel:<val>] [gate:<%%>] [dur:<steps>]
+                          Set a step to play a note or rest
+                          (e.g., 'set 1 C4', 'set 1 rest', 'set 1 C4 vel:120 gate:85 dur:3')
                           Optional parameters can be combined in any order
-                          (e.g., 'set 1 C4 vel:120 gate:85 dur:3')
   rest <step>             Set a step to rest/silence (e.g., 'rest 1')
+                          Same as 'set <step> rest'
   velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
   gate <step> <percent>   Set step gate length 1-100%% (e.g., 'gate 1 50')
   humanize <type> <amt>   Add random variation (e.g., 'humanize velocity 10')
