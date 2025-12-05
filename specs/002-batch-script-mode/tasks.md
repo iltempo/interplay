@@ -40,7 +40,7 @@
 
 - [X] T003 Add `isTerminal()` helper function in main.go using `isatty.IsTerminal()` and `isatty.IsCygwinTerminal()` for cross-platform terminal detection
 - [X] T004 Add flag parsing for `--script` flag in main.go at top of `main()` function before MIDI port listing
-- [X] T005 Add `processBatchInput(reader io.Reader, handler *commands.Handler) bool` function in main.go to process commands line-by-line using bufio.Scanner
+- [X] T005 Add `processBatchInput(reader io.Reader, handler *commands.Handler) (bool, bool)` function in main.go to process commands line-by-line using bufio.Scanner, returning (success, shouldExit)
 
 **Checkpoint**: Foundation ready - stdin detection works, flag parsing in place, batch processor function exists
 

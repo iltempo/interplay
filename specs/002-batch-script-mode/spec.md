@@ -11,14 +11,15 @@
 
 - Q: Should the system validate or restrict script content to prevent dangerous operations? → A: Basic validation - warn on potentially destructive operations (e.g., delete commands, save operations that overwrite existing patterns)
 - Q: How should AI commands behave when executed in batch scripts? → A: Execute inline - `ai <prompt>` works normally in batch mode (note: may take several seconds per AI command)
-- Q: When should batch execution stop vs. continue after errors? → A: Use runtime validation with graceful continuation - invalid commands are logged as errors but script execution continues with remaining commands (pragmatic approach, simpler than pre-execution validation)
+- Q: When should batch execution stop vs. continue after errors? → A: Use runtime validation with graceful continuation - invalid commands are logged as errors but script execution continues with remaining commands. Runtime validation means commands are validated during execution (via command execution errors), not pre-validated before execution starts.
 - Q: What feedback should users receive during batch script execution? → A: Progress with command echo - show each command as it executes plus results/errors (can be refined in later iterations)
 - Q: How should exit codes reflect partial script failures? → A: Scripts set up performance state then keep program running (playback loop continues); exit 0 only if script contains explicit `exit` command with no failures; exit 1 if any command failed; otherwise program continues running after script completes
 
 ### Implementation Notes
 
-- **Validation Strategy**: Runtime validation chosen over pre-execution validation for simplicity. Commands are validated as they execute, errors logged, execution continues. This aligns with the graceful continuation requirement and avoids complex syntax analysis.
+- **Validation Strategy**: Runtime validation chosen over pre-execution validation for simplicity. Commands are validated as they execute (via command execution errors), errors logged to stderr, execution continues. This aligns with the graceful continuation requirement and avoids complex syntax analysis. No explicit pre-execution syntax validation implemented.
 - **Terminal Detection**: `github.com/mattn/go-isatty` chosen over `golang.org/x/term` for superior cross-platform support (handles Windows Git Bash and Cygwin terminal detection reliably).
+- **Script-to-Interactive Transition**: Script file mode (--script flag) supports transitioning to interactive mode after script completion if no explicit exit command is present. This enhancement allows scripts to serve as initialization/presets for live sessions.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -87,8 +88,8 @@ Users can run the application with a script file argument (e.g., `./interplay --
 - **FR-003**: System MUST ignore lines beginning with `#` as comments in piped input
 - **FR-004**: System MUST continue to interactive mode after processing piped commands when stdin remains open (e.g., `cat file - | app`)
 - **FR-005**: System MUST continue running with playback loop active after processing all piped commands when stdin closes, unless script contains explicit `exit` command (e.g., `cat file | app`)
-- **FR-006**: System MUST validate commands during execution with graceful continuation (runtime validation) - invalid commands logged as errors, execution continues with remaining commands
-- **FR-006a**: System MUST report command errors clearly during execution, log the error, and continue processing remaining commands in batch mode
+- **FR-006**: System MUST validate commands during execution with graceful continuation (runtime validation via command execution errors) - invalid commands logged as errors to stderr, execution continues with remaining commands
+- **FR-006a**: System MUST report command errors clearly during execution to stderr, and continue processing remaining commands in batch mode
 - **FR-007**: System MUST exit with code 0 when script contains explicit `exit` command and no errors occurred; exit with code 1 if any command failed; otherwise continue running after script completes
 - **FR-008**: System MUST support `--script <filepath>` flag to execute commands from a file
 - **FR-009**: System MUST validate script file existence before attempting to read it
@@ -96,7 +97,7 @@ Users can run the application with a script file argument (e.g., `./interplay --
 - **FR-011**: System MUST warn users before executing potentially destructive operations in batch mode (delete commands, save operations that would overwrite existing patterns)
 - **FR-012**: System MUST support AI commands (`ai <prompt>`) in batch mode, executing them inline and waiting for completion before processing subsequent commands
 - **FR-013**: System MUST echo each command to output as it executes in batch mode, providing real-time progress visibility
-- **FR-014**: System MUST display command results and error messages immediately after each command completes
+- **FR-014**: System MUST display command results and error messages immediately after each command completes (implementation note: result display is implicit via command handler output, not wrapped)
 - **FR-015**: System MUST recognize `exit` command in scripts to explicitly terminate the application after script completion
 
 ### Key Entities

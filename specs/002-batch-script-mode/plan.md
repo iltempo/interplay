@@ -7,7 +7,7 @@
 
 ## Summary
 
-Add batch/script mode execution for Interplay commands via stdin piping and `--script` flag. This enables users to create reusable script files for performance setup (load patterns, configure settings) and testing automation. Scripts execute sequentially with pre-validation, graceful error handling, and real-time progress feedback. The application continues running with playback loop active after script completion unless an explicit `exit` command is present. This is a performance tool enhancement, not just batch processing.
+Add batch/script mode execution for Interplay commands via stdin piping and `--script` flag. This enables users to create reusable script files for performance setup (load patterns, configure settings) and testing automation. Scripts execute sequentially with runtime validation (via command execution errors), graceful error handling, and real-time progress feedback. The application continues running with playback loop active after script completion unless an explicit `exit` command is present. Script files can optionally transition to interactive mode for live session use. This is a performance tool enhancement, not just batch processing.
 
 ## Technical Context
 
@@ -25,7 +25,7 @@ Add batch/script mode execution for Interplay commands via stdin piping and `--s
 **Performance Goals**: Execute 50-command script in <5 seconds (excluding MIDI/AI execution time)
 **Constraints**:
 - Must not block playback goroutine during script execution
-- Pre-validation must complete before any command execution
+- Runtime validation via command execution errors (graceful continuation)
 - Real-time progress feedback (command echo) required
 
 **Scale/Scope**:
