@@ -24,17 +24,20 @@ func (h *Handler) handleCCShow(parts []string) error {
 
 	patternLen := h.pattern.Length()
 	for step := 1; step <= patternLen; step++ {
-		// Get all CC values for this step
-		// We need to iterate through possible CC numbers (0-127)
-		// But we'll only show ones that are set
-		for ccNum := 0; ccNum <= 127; ccNum++ {
-			if value, ok := h.pattern.GetStepCC(step, ccNum); ok {
-				entries = append(entries, ccEntry{
-					step:     step,
-					ccNumber: ccNum,
-					value:    value,
-				})
-			}
+		// Get step data and iterate directly over its CC map
+		// This is O(n) instead of O(n × 128) where n = number of actual CC automations
+		stepData, err := h.pattern.GetStep(step)
+		if err != nil {
+			continue // Skip invalid steps
+		}
+
+		// Iterate only over CC values that are actually set
+		for ccNum, value := range stepData.CCValues {
+			entries = append(entries, ccEntry{
+				step:     step,
+				ccNumber: ccNum,
+				value:    value,
+			})
 		}
 	}
 
