@@ -18,7 +18,7 @@ Interplay transforms your creative process by combining AI musical intelligence 
 
 Interplay works with your synthesizer's full MIDI capabilities—notes, velocity, gate length, and synth-specific parameters. The AI helps you stay musically coherent while encouraging experimentation with dissonance, unconventional harmonies, and creative tension when that's what your music needs.
 
-**Current Status:** Phase 4 Complete - Batch/script mode for performance setup and automation
+**Current Status:** Phase 5 Complete - Batch/script mode for performance setup and automation
 
 ## Installation
 
@@ -154,15 +154,15 @@ Interplay supports batch execution for automating pattern setup, testing workflo
 
 **1. Piped Input (batch then continue playing):**
 ```bash
-cat setup.txt | ./interplay
+cat commands.txt | ./interplay
 ```
-Commands execute, then playback continues. Press Ctrl+C to stop. Perfect for performance setup.
+Processes commands from the file, then continues running with playback loop active. Press Ctrl+C to exit.
 
-**2. Interactive Continuation:**
+**2. Piped Input with Interactive Continuation:**
 ```bash
-cat setup.txt - | ./interplay
+cat commands.txt - | ./interplay
 ```
-Note the dash (`-`) after the filename. Commands execute, then you can continue with interactive mode.
+The dash (`-`) keeps stdin open, allowing you to continue with manual commands after the script completes.
 
 **3. Script File Flag:**
 ```bash
@@ -172,49 +172,33 @@ Explicit file execution. Same behavior as piped input (continues playing after s
 
 ### Script File Format
 
-Scripts are plain text files with one command per line:
-
 ```bash
-# Example: performance-setup.txt
 # Comments start with #
+# Commands execute line-by-line
 
-# Clear and set tempo
+# Set up a pattern
 clear
-tempo 90
+tempo 95
+set 1 C3 vel:127
+set 5 C3 vel:110
+set 9 G2 vel:120
 
-# Build a bass line
-set 1 C2 vel:127
-set 5 C2 vel:110
-set 9 G1 vel:120
-
-# Add humanization
+# Add musical variation
 humanize velocity 8
-humanize timing 10
 swing 50
 
-# Add filter sweep with CC automation
-cc-step 1 74 127
-cc-step 9 74 60
+# Save the result
+save performance-bass
 
-# Show the result
-show
-
-# Save it
-save my-performance
-
-# Script ends, playback continues
-# Press Ctrl+C to stop when done
+# Optional: exit when done
+# exit
 ```
-
-### Exit Behavior
 
 By default, scripts setup musical state and continue playing—this is a **performance tool**, not just batch processing.
 
-**Exit codes:**
-- No `exit` command → continues playing (exit code 0)
-- `exit` command present, no errors → exits cleanly (exit code 0)
-- `exit` command present, had errors → exits with error (exit code 1)
-- Script file not found → exits with error (exit code 2)
+### Exit Behavior
+
+Scripts continue with playback loop active unless you add an explicit `exit` command:
 
 **To exit automatically after script:**
 ```bash
@@ -222,37 +206,34 @@ By default, scripts setup musical state and continue playing—this is a **perfo
 exit
 ```
 
+**Exit codes:**
+- `0` = Success (all commands executed without errors)
+- `1` = Errors occurred (but script completed)
+- `2` = File not found or read error
+
 ### Error Handling
 
-Scripts validate syntax before execution. During execution, errors are logged but don't stop processing:
-
+Invalid commands are logged but don't stop execution:
 ```bash
-> set 1 C3
-> invalid command here  # Error logged, continues
-Error: unknown command: invalid
-> set 5 G3              # Still executes
+set 1 C4        # Executes successfully
+invalid cmd     # Error logged, execution continues
+set 5 G2        # Executes successfully
 ```
 
 ### Warnings for Destructive Operations
 
-Batch mode warns before potentially destructive operations:
-
-```bash
-> save existing_pattern
-⚠️  Warning: Pattern 'existing_pattern' already exists and will be overwritten.
-Saved pattern 'existing_pattern'
-
-> delete old_pattern
-⚠️  Warning: This will permanently delete pattern 'old_pattern'.
-Deleted pattern 'old_pattern'
+The system warns before overwriting or deleting:
+```
+> save my-pattern
+⚠️  Warning: Pattern 'my-pattern' already exists and will be overwritten.
 ```
 
 ### Example Scripts
 
-See the `patterns/` directory for examples:
+Included test scripts demonstrate common workflows:
 - `example-batch-setup.txt` - Complete performance setup workflow
-- `example-testing.txt` - Testing and automation with exit command
-- `example-interactive.txt` - Piped input with interactive continuation
+- `test_basic.txt` - Simple pattern creation
+- `test_cc.txt` - CC automation examples
 
 ### AI Commands in Scripts
 
@@ -263,7 +244,6 @@ AI commands work in batch mode—they execute inline and wait for completion:
 set 1 C3
 ai make it darker
 show
-save dark-version
 ```
 
 Note: AI commands may take several seconds each. The script waits for completion before continuing.
