@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/chzyer/readline"
 	"github.com/iltempo/interplay/commands"
@@ -144,6 +146,22 @@ func main() {
 	engine.Start()
 	defer engine.Stop()
 
+	// Setup cleanup function for graceful shutdown
+	cleanup := func() {
+		engine.Stop()
+		midiOut.Close()
+	}
+
+	// Setup signal handler for Ctrl+C to ensure clean shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		fmt.Println("\nShutting down gracefully...")
+		cleanup()
+		os.Exit(0)
+	}()
+
 	fmt.Println("Playback started! Type 'help' for commands, 'quit' to exit.")
 	fmt.Println()
 
@@ -165,6 +183,7 @@ func main() {
 
 		// Exit with appropriate code if exit command present or on error
 		if shouldExit {
+			cleanup()
 			if success {
 				os.Exit(0)
 			} else {
@@ -190,6 +209,7 @@ func main() {
 
 		// Exit with appropriate code if exit command present
 		if shouldExit {
+			cleanup()
 			if success {
 				os.Exit(0)
 			} else {
