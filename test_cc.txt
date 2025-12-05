@@ -1,0 +1,8 @@
+# CC automation test - demonstrates per-step CC control
+# Usage: ./interplay --script test_cc.txt
+#        OR: cat test_cc.txt | ./interplay
+
+# Clear and start fresh
+tempo 60
+
+ai play a doomy bass pattern with long sustain in a minor key with 32 steps

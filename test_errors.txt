@@ -1,0 +1,35 @@
+# Error handling test - demonstrates graceful error continuation
+# Usage: ./interplay --script test_errors.txt
+#        OR: cat test_errors.txt | ./interplay
+
+# This script intentionally contains errors to test error handling
+
+# Valid command
+set 1 C3
+
+# ERROR: Invalid step number (should log error and continue)
+set 999 D3
+
+# Valid command - should still execute
+set 5 G3
+
+# ERROR: Invalid note (should log error and continue)
+set 9 X99
+
+# Valid command - should still execute
+set 13 C4
+
+# Valid command
+tempo 100
+
+# Show what actually got set (only valid commands)
+show
+
+# Don't save (contains errors)
+# Don't exit - continue playing the partial pattern
+
+# Expected behavior:
+# - Errors are logged to stderr
+# - Valid commands execute successfully
+# - Pattern plays with only the valid notes set
+# - Script continues playing (no exit command)

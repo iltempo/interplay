@@ -192,6 +192,16 @@ func (e *Engine) playbackLoop() {
 					delete(activeNotes, step.Note)
 				}
 
+				// Send CC messages for this step before Note On (ensures parameters are set before note triggers)
+				if len(step.CCValues) > 0 {
+					for ccNum, value := range step.CCValues {
+						err := e.midiOut.SendCC(channel, uint8(ccNum), uint8(value))
+						if err != nil {
+							fmt.Printf("Error sending CC#%d: %v\n", ccNum, err)
+						}
+					}
+				}
+
 				// Send Note On with humanized velocity
 				err := e.midiOut.NoteOn(channel, step.Note, humanizedVelocity)
 				if err != nil {

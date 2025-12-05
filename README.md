@@ -18,7 +18,7 @@ Interplay transforms your creative process by combining AI musical intelligence 
 
 Interplay works with your synthesizer's full MIDI capabilities—notes, velocity, gate length, and synth-specific parameters. The AI helps you stay musically coherent while encouraging experimentation with dissonance, unconventional harmonies, and creative tension when that's what your music needs.
 
-**Current Status:** Phase 3 Complete - AI integration with hybrid command/natural language control
+**Current Status:** Phase 5 Complete - Batch/script mode for performance setup and automation
 
 ## Installation
 
@@ -146,6 +146,113 @@ AI> <enter>
 
 **Alternative: Manual mode** - All commands work without an API key if you prefer direct control without AI assistance. Type `help` for the full command list.
 
+## Batch/Script Mode - Performance Setup & Automation
+
+Interplay supports batch execution for automating pattern setup, testing workflows, and preparing performance configurations. Create reusable script files containing commands that execute sequentially.
+
+### Three Execution Modes
+
+**1. Piped Input (batch then continue playing):**
+```bash
+cat commands.txt | ./interplay
+```
+Processes commands from the file, then continues running with playback loop active. Press Ctrl+C to exit.
+
+**2. Piped Input with Interactive Continuation:**
+```bash
+cat commands.txt - | ./interplay
+```
+The dash (`-`) keeps stdin open, allowing you to continue with manual commands after the script completes.
+
+**3. Script File Flag:**
+```bash
+./interplay --script setup.txt
+```
+Explicit file execution. Same behavior as piped input (continues playing after script completes).
+
+### Script File Format
+
+```bash
+# Comments start with #
+# Commands execute line-by-line
+
+# Set up a pattern
+clear
+tempo 95
+set 1 C3 vel:127
+set 5 C3 vel:110
+set 9 G2 vel:120
+
+# Add musical variation
+humanize velocity 8
+swing 50
+
+# Save the result
+save performance-bass
+
+# Optional: exit when done
+# exit
+```
+
+By default, scripts setup musical state and continue playing—this is a **performance tool**, not just batch processing.
+
+### Exit Behavior
+
+Scripts continue with playback loop active unless you add an explicit `exit` command:
+
+**To exit automatically after script:**
+```bash
+# At end of script file:
+exit
+```
+
+**Exit codes:**
+- `0` = Success (all commands executed without errors)
+- `1` = Errors occurred (but script completed)
+- `2` = File not found or read error
+
+### Error Handling
+
+Invalid commands are logged but don't stop execution:
+```bash
+set 1 C4        # Executes successfully
+invalid cmd     # Error logged, execution continues
+set 5 G2        # Executes successfully
+```
+
+### Warnings for Destructive Operations
+
+The system warns before overwriting or deleting:
+```
+> save my-pattern
+⚠️  Warning: Pattern 'my-pattern' already exists and will be overwritten.
+```
+
+### Example Scripts
+
+Included test scripts demonstrate common workflows:
+- `example-batch-setup.txt` - Complete performance setup workflow
+- `test_basic.txt` - Simple pattern creation
+- `test_cc.txt` - CC automation examples
+
+### AI Commands in Scripts
+
+AI commands work in batch mode—they execute inline and wait for completion:
+
+```bash
+# script.txt
+set 1 C3
+ai make it darker
+show
+```
+
+Note: AI commands may take several seconds each. The script waits for completion before continuing.
+
 ## Learn More
 
-See [CLAUDE.md](CLAUDE.md) for detailed development approach, architecture, and roadmap.
+**For Users:**
+- See [CLAUDE.md](CLAUDE.md) for detailed development approach, architecture, and roadmap
+
+**For Developers:**
+- See [Implementation Summary](specs/002-batch-script-mode/IMPLEMENTATION-SUMMARY.md) for batch/script mode feature documentation
+- See [Phase 5 Recommendations](specs/002-batch-script-mode/PHASE-5-RECOMMENDATIONS.md) for lessons learned and next phase planning guidance

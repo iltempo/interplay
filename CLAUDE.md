@@ -381,7 +381,40 @@ type Step struct {
 - AI integration point: translate "make it darker" → `cc-step` commands
 - Profile format already designed, just not implemented yet
 
-### Phase 5: Live Performance Features
+### Phase 5: Batch/Script Mode ✅ (Completed)
+- ✅ Stdin detection for piped input vs terminal
+- ✅ `--script` flag for explicit file execution
+- ✅ Comment handling (lines starting with `#`)
+- ✅ Error tracking with graceful continuation
+- ✅ Command echo for progress feedback
+- ✅ Exit command recognition for controlled termination
+- ✅ Performance tool paradigm: scripts setup state, playback continues
+
+**Batch Mode Features:**
+- Pipe commands from files: `cat commands.txt | ./interplay`
+- Interactive continuation: `cat commands.txt - | ./interplay`
+- Script file flag: `./interplay --script commands.txt`
+- Graceful error handling: log errors, continue execution
+- Real-time progress: echo commands as they execute
+- Exit control: explicit `exit` command or continue playing
+- AI commands work inline: `ai make it darker` in scripts
+
+**Usage Examples:**
+```bash
+# Pipe commands and continue with playback
+echo "set 1 C4" | ./interplay
+
+# Pipe commands then interact
+cat setup.txt - | ./interplay
+
+# Execute script file
+./interplay --script performance-setup.txt
+
+# Script with AI commands
+echo -e "set 1 C3\nai add tension\nshow" | ./interplay
+```
+
+### Phase 6: Live Performance Features
 - MIDI controller input (separate MIDI controller device)
     - Play notes on controller to add them to the pattern in real-time
     - Use knobs/faders to control synth parameters

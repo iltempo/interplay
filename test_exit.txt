@@ -1,0 +1,19 @@
+# Exit command test - demonstrates clean exit after execution
+# Usage: ./interplay --script test_exit.txt
+#        OR: cat test_exit.txt | ./interplay
+
+# Create a quick pattern
+clear
+set 1 C3
+set 5 G3
+set 9 C4
+tempo 120
+
+# Show it
+show
+
+# Save it
+save exit-test
+
+# Exit cleanly (don't continue playing)
+exit
