@@ -16,7 +16,7 @@ Demonstrates:
 - Humanization
 - Swing
 - Pattern saving
-- Continuous playback (no exit command)
+- Transition to interactive mode (no exit command)
 
 ### test_cc.txt
 **Purpose**: CC (Control Change) automation
@@ -114,14 +114,19 @@ cat test_interactive.txt - | ./interplay
 | Piped input | No | Continues playing | 0 (on Ctrl+C) |
 | Piped input | Yes, no errors | Exits cleanly | 0 |
 | Piped input | Yes, had errors | Exits with errors | 1 |
-| Script file | No | Continues playing | 0 (on Ctrl+C) |
+| Script file | No | Interactive mode | User quits |
 | Script file | Yes, no errors | Exits cleanly | 0 |
 | Script file | Yes, had errors | Exits with errors | 1 |
 | Script file | File not found | Error message | 2 |
 | Interactive pipe (`-`) | N/A | Continues interactive | User quits |
 
-## Performance Tool Paradigm
+## Script as Preset
 
-By default, scripts setup musical state and the playback loop continues running. This is intentional - Interplay is a **performance tool**, not just a batch processor. Scripts prepare your performance, then you play live or let it run.
+Script files (using `--script` flag) work as **presets** that set up musical state and then transition to interactive mode. This lets you:
+- Create reusable starting points for performances
+- Load complex patterns quickly and continue editing
+- Build libraries of musical ideas
 
 To exit automatically after a script, include `exit` as the last command.
+
+For the "performance tool paradigm" (setup pattern and let it play), use piped input instead: `cat script.txt | ./interplay`

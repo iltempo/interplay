@@ -192,9 +192,16 @@ func main() {
 				os.Exit(1)
 			}
 		}
-		// Otherwise continue running with playback
-		fmt.Println("\nScript completed. Playback continues. Press Ctrl+C to exit.")
-		select {} // Block forever, playback goroutine keeps running
+		// Otherwise transition to interactive mode (script as preset)
+		fmt.Println("\nScript completed. Entering interactive mode...")
+		fmt.Println()
+		err = cmdHandler.ReadLoop(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading commands: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Println("Goodbye!")
+		return
 	}
 
 	// Determine input mode based on stdin

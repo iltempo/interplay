@@ -38,5 +38,5 @@ show
 # Save the pattern
 save basic-bass
 
-# Script ends - playback continues
-# Press Ctrl+C to stop when done
+# Script ends - transitions to interactive mode
+# You can continue working with the pattern
