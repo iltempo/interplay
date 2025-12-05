@@ -11,11 +11,12 @@ const DefaultPatternLength = 16
 
 // Step represents a single step in the sequence
 type Step struct {
-	Note     uint8 // MIDI note number (0-127), 0 means rest
-	IsRest   bool  // true if this step is a rest/silence
-	Velocity uint8 // MIDI velocity (0-127), default 100
-	Gate     int   // Gate length as percentage (1-100), default 90
-	Duration int   // Note duration in steps (1-16), default 1
+	Note     uint8       // MIDI note number (0-127), 0 means rest
+	IsRest   bool        // true if this step is a rest/silence
+	Velocity uint8       // MIDI velocity (0-127), default 100
+	Gate     int         // Gate length as percentage (1-100), default 90
+	Duration int         // Note duration in steps (1-16), default 1
+	CCValues map[int]int // CC automation: CC# → Value (0-127), nil if no automation
 }
 
 // Humanization settings for making patterns feel more alive
@@ -27,10 +28,11 @@ type Humanization struct {
 
 // Pattern represents a musical sequence pattern
 type Pattern struct {
-	Steps        []Step // A slice of steps, allowing variable length
+	Steps        []Step       // A slice of steps, allowing variable length
 	BPM          int
 	SwingPercent int          // Swing/groove timing (0-75%), 0 = off, 50 = triplet swing
 	Humanization Humanization // humanization settings
+	globalCC     map[int]int  // Global CC values (transient, not saved): CC# → Value
 	mu           sync.RWMutex // protects concurrent access
 }
 
@@ -234,7 +236,27 @@ func (p *Pattern) Clone() *Pattern {
 		Humanization: p.Humanization, // Copy humanization settings
 		Steps:        make([]Step, len(p.Steps)),
 	}
-	copy(clone.Steps, p.Steps) // Slices require an explicit copy
+
+	// Deep copy steps (including CC values maps)
+	for i, step := range p.Steps {
+		clone.Steps[i] = step
+		// Deep copy CCValues map if present
+		if step.CCValues != nil {
+			clone.Steps[i].CCValues = make(map[int]int)
+			for ccNum, value := range step.CCValues {
+				clone.Steps[i].CCValues[ccNum] = value
+			}
+		}
+	}
+
+	// Deep copy globalCC map if present
+	if p.globalCC != nil {
+		clone.globalCC = make(map[int]int)
+		for ccNum, value := range p.globalCC {
+			clone.globalCC[ccNum] = value
+		}
+	}
+
 	return clone
 }
 
@@ -249,8 +271,28 @@ func (p *Pattern) CopyFrom(other *Pattern) {
 	p.BPM = other.BPM
 	p.SwingPercent = other.SwingPercent
 	p.Humanization = other.Humanization
+
+	// Deep copy steps (including CC values)
 	p.Steps = make([]Step, len(other.Steps))
-	copy(p.Steps, other.Steps)
+	for i, step := range other.Steps {
+		p.Steps[i] = step
+		if step.CCValues != nil {
+			p.Steps[i].CCValues = make(map[int]int)
+			for ccNum, value := range step.CCValues {
+				p.Steps[i].CCValues[ccNum] = value
+			}
+		}
+	}
+
+	// Deep copy globalCC
+	if other.globalCC != nil {
+		p.globalCC = make(map[int]int)
+		for ccNum, value := range other.globalCC {
+			p.globalCC[ccNum] = value
+		}
+	} else {
+		p.globalCC = nil
+	}
 }
 
 // Resize changes the number of steps in the pattern.
@@ -300,11 +342,29 @@ func (p *Pattern) String() string {
 			sb.WriteString(fmt.Sprintf("  %2d: rest\n", stepNum))
 		} else {
 			noteName := midiToNoteName(step.Note)
+			// Build base info string
+			var info string
 			if step.Duration > 1 {
-				sb.WriteString(fmt.Sprintf("  %2d: %s (vel:%d gate:%d%% dur:%d)\n", stepNum, noteName, step.Velocity, step.Gate, step.Duration))
+				info = fmt.Sprintf("  %2d: %s (vel:%d gate:%d%% dur:%d)", stepNum, noteName, step.Velocity, step.Gate, step.Duration)
 			} else {
-				sb.WriteString(fmt.Sprintf("  %2d: %s (vel:%d gate:%d%%)\n", stepNum, noteName, step.Velocity, step.Gate))
+				info = fmt.Sprintf("  %2d: %s (vel:%d gate:%d%%)", stepNum, noteName, step.Velocity, step.Gate)
 			}
+
+			// Add CC automation indicators if present
+			if len(step.CCValues) > 0 {
+				info += " ["
+				first := true
+				for ccNum, value := range step.CCValues {
+					if !first {
+						info += ", "
+					}
+					info += fmt.Sprintf("CC%d:%d", ccNum, value)
+					first = false
+				}
+				info += "]"
+			}
+
+			sb.WriteString(info + "\n")
 		}
 	}
 
@@ -431,4 +491,152 @@ func (p *Pattern) GetSwing() int {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	return p.SwingPercent
+}
+
+// SetGlobalCC sets a global CC value (transient, not saved with pattern)
+// Global CC values are sent at the start of each loop iteration
+func (p *Pattern) SetGlobalCC(ccNumber, value int) error {
+	if err := ValidateCC(ccNumber, value); err != nil {
+		return err
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.globalCC == nil {
+		p.globalCC = make(map[int]int)
+	}
+	p.globalCC[ccNumber] = value
+	return nil
+}
+
+// GetGlobalCC returns the global CC value for a specific CC number
+// Returns (value, true) if set, (0, false) if not set
+func (p *Pattern) GetGlobalCC(ccNumber int) (int, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.globalCC == nil {
+		return 0, false
+	}
+	value, ok := p.globalCC[ccNumber]
+	return value, ok
+}
+
+// GetAllGlobalCC returns a copy of all global CC values
+func (p *Pattern) GetAllGlobalCC() map[int]int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	if p.globalCC == nil {
+		return nil
+	}
+
+	// Return a copy to prevent external modification
+	copy := make(map[int]int)
+	for ccNum, value := range p.globalCC {
+		copy[ccNum] = value
+	}
+	return copy
+}
+
+// SetStepCC sets a CC value for a specific step
+func (p *Pattern) SetStepCC(stepNum, ccNumber, value int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return fmt.Errorf("step must be 1-%d", numSteps)
+	}
+
+	if err := ValidateCC(ccNumber, value); err != nil {
+		return err
+	}
+
+	step := &p.Steps[stepNum-1]
+	if step.CCValues == nil {
+		step.CCValues = make(map[int]int)
+	}
+	step.CCValues[ccNumber] = value
+	return nil
+}
+
+// GetStepCC returns the CC value for a specific step and CC number
+// Returns (value, true) if set, (0, false) if not set
+func (p *Pattern) GetStepCC(stepNum, ccNumber int) (int, bool) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return 0, false
+	}
+
+	step := &p.Steps[stepNum-1]
+	if step.CCValues == nil {
+		return 0, false
+	}
+
+	value, ok := step.CCValues[ccNumber]
+	return value, ok
+}
+
+// ClearStepCC removes a specific CC automation from a step
+// If ccNumber is -1, clears all CC automation from the step
+func (p *Pattern) ClearStepCC(stepNum, ccNumber int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	numSteps := len(p.Steps)
+	if stepNum < 1 || stepNum > numSteps {
+		return fmt.Errorf("step must be 1-%d", numSteps)
+	}
+
+	step := &p.Steps[stepNum-1]
+	if step.CCValues == nil {
+		return nil // Nothing to clear
+	}
+
+	if ccNumber == -1 {
+		// Clear all CC automation
+		step.CCValues = nil
+	} else {
+		// Clear specific CC number
+		delete(step.CCValues, ccNumber)
+		// If map is now empty, set to nil
+		if len(step.CCValues) == 0 {
+			step.CCValues = nil
+		}
+	}
+
+	return nil
+}
+
+// ApplyGlobalCC applies a global CC value to all steps with notes
+func (p *Pattern) ApplyGlobalCC(ccNumber int) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	// Check if global CC is set
+	if p.globalCC == nil {
+		return fmt.Errorf("no global CC values set")
+	}
+
+	value, ok := p.globalCC[ccNumber]
+	if !ok {
+		return fmt.Errorf("no global value set for CC#%d", ccNumber)
+	}
+
+	// Apply to all steps with notes
+	for i := range p.Steps {
+		if !p.Steps[i].IsRest {
+			if p.Steps[i].CCValues == nil {
+				p.Steps[i].CCValues = make(map[int]int)
+			}
+			p.Steps[i].CCValues[ccNumber] = value
+		}
+	}
+
+	return nil
 }

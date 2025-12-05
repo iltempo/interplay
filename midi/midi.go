@@ -59,3 +59,11 @@ func (o *Output) NoteOn(channel, note, velocity uint8) error {
 func (o *Output) NoteOff(channel, note uint8) error {
 	return o.send(midi.NoteOff(channel, note))
 }
+
+// SendCC sends a MIDI Control Change (CC) message
+// channel: MIDI channel (0-15, where 0 = channel 1)
+// ccNumber: CC parameter number (0-127)
+// value: CC parameter value (0-127)
+func (o *Output) SendCC(channel, ccNumber, value uint8) error {
+	return o.send(midi.ControlChange(channel, ccNumber, value))
+}

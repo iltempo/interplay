@@ -1018,3 +1018,725 @@ func TestSwingInCopyFrom(t *testing.T) {
 		t.Errorf("Copied SwingPercent = %d, want 66", p2.SwingPercent)
 	}
 }
+
+// TestValidateCC tests CC number and value validation
+func TestValidateCC(t *testing.T) {
+	tests := []struct {
+		name      string
+		ccNumber  int
+		value     int
+		wantErr   bool
+	}{
+		{"Valid min CC", 0, 0, false},
+		{"Valid max CC", 127, 127, false},
+		{"Valid mid CC", 74, 100, false},
+		{"CC number too low", -1, 64, true},
+		{"CC number too high", 128, 64, true},
+		{"Value too low", 74, -1, true},
+		{"Value too high", 74, 128, true},
+		{"Both invalid", -1, 128, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateCC(tt.ccNumber, tt.value)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateCC(%d, %d) error = %v, wantErr %v", tt.ccNumber, tt.value, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestSetGlobalCC tests setting global CC values
+func TestSetGlobalCC(t *testing.T) {
+	p := New(16)
+
+	// Valid CC
+	err := p.SetGlobalCC(74, 127)
+	if err != nil {
+		t.Errorf("SetGlobalCC(74, 127) unexpected error: %v", err)
+	}
+
+	// Verify it was set
+	value, ok := p.GetGlobalCC(74)
+	if !ok {
+		t.Error("SetGlobalCC(74, 127) did not set value")
+	}
+	if value != 127 {
+		t.Errorf("GetGlobalCC(74) = %d, want 127", value)
+	}
+
+	// Invalid CC number
+	err = p.SetGlobalCC(128, 64)
+	if err == nil {
+		t.Error("SetGlobalCC(128, 64) should return error for invalid CC number")
+	}
+
+	// Invalid value
+	err = p.SetGlobalCC(74, 128)
+	if err == nil {
+		t.Error("SetGlobalCC(74, 128) should return error for invalid value")
+	}
+}
+
+// TestGetGlobalCC tests getting global CC values
+func TestGetGlobalCC(t *testing.T) {
+	p := New(16)
+
+	// Get non-existent CC
+	value, ok := p.GetGlobalCC(74)
+	if ok {
+		t.Error("GetGlobalCC should return false for non-existent CC")
+	}
+	if value != 0 {
+		t.Errorf("GetGlobalCC for non-existent CC should return 0, got %d", value)
+	}
+
+	// Set and get
+	p.SetGlobalCC(74, 100)
+	value, ok = p.GetGlobalCC(74)
+	if !ok {
+		t.Error("GetGlobalCC should return true for existing CC")
+	}
+	if value != 100 {
+		t.Errorf("GetGlobalCC(74) = %d, want 100", value)
+	}
+
+	// Set multiple CCs
+	p.SetGlobalCC(71, 80)
+	p.SetGlobalCC(73, 20)
+
+	value, ok = p.GetGlobalCC(71)
+	if !ok || value != 80 {
+		t.Errorf("GetGlobalCC(71) = (%d, %v), want (80, true)", value, ok)
+	}
+
+	value, ok = p.GetGlobalCC(73)
+	if !ok || value != 20 {
+		t.Errorf("GetGlobalCC(73) = (%d, %v), want (20, true)", value, ok)
+	}
+}
+
+// TestGetAllGlobalCC tests getting all global CC values
+func TestGetAllGlobalCC(t *testing.T) {
+	p := New(16)
+
+	// Initially should be nil
+	allCC := p.GetAllGlobalCC()
+	if allCC != nil {
+		t.Error("GetAllGlobalCC should return nil for new pattern")
+	}
+
+	// Set some values
+	p.SetGlobalCC(74, 100)
+	p.SetGlobalCC(71, 80)
+
+	allCC = p.GetAllGlobalCC()
+	if allCC == nil {
+		t.Fatal("GetAllGlobalCC should not return nil after setting values")
+	}
+	if len(allCC) != 2 {
+		t.Errorf("GetAllGlobalCC returned %d values, want 2", len(allCC))
+	}
+	if allCC[74] != 100 {
+		t.Errorf("allCC[74] = %d, want 100", allCC[74])
+	}
+	if allCC[71] != 80 {
+		t.Errorf("allCC[71] = %d, want 80", allCC[71])
+	}
+
+	// Modifying returned map should not affect pattern
+	allCC[74] = 50
+	value, _ := p.GetGlobalCC(74)
+	if value != 100 {
+		t.Error("Modifying GetAllGlobalCC result affected pattern state")
+	}
+}
+
+// TestGlobalCCInClone tests that Clone copies global CC values
+func TestGlobalCCInClone(t *testing.T) {
+	p := New(16)
+	p.SetGlobalCC(74, 100)
+	p.SetGlobalCC(71, 80)
+
+	clone := p.Clone()
+
+	// Verify clone has global CC
+	value, ok := clone.GetGlobalCC(74)
+	if !ok || value != 100 {
+		t.Errorf("Cloned global CC#74 = (%d, %v), want (100, true)", value, ok)
+	}
+
+	value, ok = clone.GetGlobalCC(71)
+	if !ok || value != 80 {
+		t.Errorf("Cloned global CC#71 = (%d, %v), want (80, true)", value, ok)
+	}
+
+	// Modify clone and ensure original is unchanged
+	clone.SetGlobalCC(74, 50)
+	origValue, _ := p.GetGlobalCC(74)
+	if origValue != 100 {
+		t.Error("Modifying cloned global CC affected original")
+	}
+}
+
+// TestGlobalCCInCopyFrom tests that CopyFrom copies global CC values
+func TestGlobalCCInCopyFrom(t *testing.T) {
+	p1 := New(16)
+	p1.SetGlobalCC(74, 100)
+	p1.SetGlobalCC(71, 80)
+
+	p2 := New(16)
+	p2.CopyFrom(p1)
+
+	// Verify p2 has global CC
+	value, ok := p2.GetGlobalCC(74)
+	if !ok || value != 100 {
+		t.Errorf("Copied global CC#74 = (%d, %v), want (100, true)", value, ok)
+	}
+
+	value, ok = p2.GetGlobalCC(71)
+	if !ok || value != 80 {
+		t.Errorf("Copied global CC#71 = (%d, %v), want (80, true)", value, ok)
+	}
+
+	// Modify p1 and ensure p2 is unchanged
+	p1.SetGlobalCC(74, 50)
+	p2Value, _ := p2.GetGlobalCC(74)
+	if p2Value != 100 {
+		t.Error("Modifying source global CC after CopyFrom affected destination")
+	}
+}
+
+// TestStepCCValues tests per-step CC automation
+func TestStepCCValues(t *testing.T) {
+	p := New(16)
+
+	// Set CC on a step
+	step := &p.Steps[0]
+	if step.CCValues != nil {
+		t.Error("New step should have nil CCValues")
+	}
+
+	// Manually set CC (simulating what command handlers will do)
+	step.CCValues = make(map[int]int)
+	step.CCValues[74] = 127
+	step.CCValues[71] = 64
+
+	if len(step.CCValues) != 2 {
+		t.Errorf("Step CCValues length = %d, want 2", len(step.CCValues))
+	}
+	if step.CCValues[74] != 127 {
+		t.Errorf("Step CC#74 = %d, want 127", step.CCValues[74])
+	}
+	if step.CCValues[71] != 64 {
+		t.Errorf("Step CC#71 = %d, want 64", step.CCValues[71])
+	}
+}
+
+// TestStepCCInClone tests that Clone deep copies step CC values
+func TestStepCCInClone(t *testing.T) {
+	p := New(16)
+	p.Steps[0].CCValues = map[int]int{74: 127, 71: 64}
+	p.Steps[4].CCValues = map[int]int{74: 20}
+
+	clone := p.Clone()
+
+	// Verify clone has CC values
+	if len(clone.Steps[0].CCValues) != 2 {
+		t.Errorf("Cloned step 1 CCValues length = %d, want 2", len(clone.Steps[0].CCValues))
+	}
+	if clone.Steps[0].CCValues[74] != 127 {
+		t.Errorf("Cloned step 1 CC#74 = %d, want 127", clone.Steps[0].CCValues[74])
+	}
+	if len(clone.Steps[4].CCValues) != 1 {
+		t.Errorf("Cloned step 5 CCValues length = %d, want 1", len(clone.Steps[4].CCValues))
+	}
+
+	// Modify clone and ensure original is unchanged
+	clone.Steps[0].CCValues[74] = 50
+	if p.Steps[0].CCValues[74] != 127 {
+		t.Error("Modifying cloned step CC values affected original")
+	}
+
+	// Add new CC to clone
+	clone.Steps[0].CCValues[73] = 100
+	if _, exists := p.Steps[0].CCValues[73]; exists {
+		t.Error("Adding CC to cloned step affected original")
+	}
+}
+
+// TestStepCCInCopyFrom tests that CopyFrom deep copies step CC values
+func TestStepCCInCopyFrom(t *testing.T) {
+	p1 := New(16)
+	p1.Steps[0].CCValues = map[int]int{74: 127, 71: 64}
+	p1.Steps[4].CCValues = map[int]int{74: 20}
+
+	p2 := New(16)
+	p2.CopyFrom(p1)
+
+	// Verify p2 has CC values
+	if len(p2.Steps[0].CCValues) != 2 {
+		t.Errorf("Copied step 1 CCValues length = %d, want 2", len(p2.Steps[0].CCValues))
+	}
+	if p2.Steps[0].CCValues[74] != 127 {
+		t.Errorf("Copied step 1 CC#74 = %d, want 127", p2.Steps[0].CCValues[74])
+	}
+
+	// Modify p1 and ensure p2 is unchanged
+	p1.Steps[0].CCValues[74] = 50
+	if p2.Steps[0].CCValues[74] != 127 {
+		t.Error("Modifying source step CC values after CopyFrom affected destination")
+	}
+}
+
+// TestCCJSONRoundTrip tests CC data persistence through save/load
+func TestCCJSONRoundTrip(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Create pattern with CC automation
+	p := New(16)
+	p.Clear()
+	p.SetNote(1, 60) // C4
+	p.SetNote(5, 67) // G4
+
+	// Add CC automation to steps
+	p.Steps[0].CCValues = map[int]int{74: 127, 71: 64}
+	p.Steps[4].CCValues = map[int]int{74: 20}
+
+	// Save it
+	err := p.Save("cc_test")
+	if err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Load it back
+	loaded, err := Load("cc_test")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// Verify CC automation was preserved
+	if len(loaded.Steps[0].CCValues) != 2 {
+		t.Errorf("Loaded step 1 CCValues length = %d, want 2", len(loaded.Steps[0].CCValues))
+	}
+	if loaded.Steps[0].CCValues[74] != 127 {
+		t.Errorf("Loaded step 1 CC#74 = %d, want 127", loaded.Steps[0].CCValues[74])
+	}
+	if loaded.Steps[0].CCValues[71] != 64 {
+		t.Errorf("Loaded step 1 CC#71 = %d, want 64", loaded.Steps[0].CCValues[71])
+	}
+
+	if len(loaded.Steps[4].CCValues) != 1 {
+		t.Errorf("Loaded step 5 CCValues length = %d, want 1", len(loaded.Steps[4].CCValues))
+	}
+	if loaded.Steps[4].CCValues[74] != 20 {
+		t.Errorf("Loaded step 5 CC#74 = %d, want 20", loaded.Steps[4].CCValues[74])
+	}
+
+	// Verify steps without CC have nil CCValues
+	if loaded.Steps[1].CCValues != nil {
+		t.Error("Steps without CC automation should have nil CCValues after load")
+	}
+}
+
+// TestCCBackwardCompatibility tests loading patterns without CC data
+func TestCCBackwardCompatibility(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Create a pattern without CC automation (simulating old format)
+	p := New(16)
+	p.Clear()
+	p.SetNote(1, 60)
+	p.SetNote(5, 67)
+
+	// Save it
+	err := p.Save("old_format")
+	if err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Load it back
+	loaded, err := Load("old_format")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// Verify it loaded successfully
+	step1, _ := loaded.GetStep(1)
+	if step1.Note != 60 {
+		t.Error("Backward compatibility: failed to load note")
+	}
+
+	// Verify CC values are nil (not present in old format)
+	if loaded.Steps[0].CCValues != nil {
+		t.Error("Old format pattern should have nil CCValues")
+	}
+}
+
+// TestGlobalCCNotPersisted tests that global CC is not saved to JSON
+func TestGlobalCCNotPersisted(t *testing.T) {
+	tempDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	os.Chdir(tempDir)
+	defer os.Chdir(originalDir)
+
+	// Create pattern with global CC
+	p := New(16)
+	p.Clear()
+	p.SetNote(1, 60)
+	p.SetGlobalCC(74, 100)
+	p.SetGlobalCC(71, 80)
+
+	// Save it
+	err := p.Save("global_cc_test")
+	if err != nil {
+		t.Fatalf("Save() error: %v", err)
+	}
+
+	// Load it back
+	loaded, err := Load("global_cc_test")
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	// Verify global CC was NOT restored (it's transient)
+	allCC := loaded.GetAllGlobalCC()
+	if allCC != nil {
+		t.Error("Global CC should not be persisted - should be nil after load")
+	}
+
+	// Verify note was saved
+	step1, _ := loaded.GetStep(1)
+	if step1.Note != 60 {
+		t.Error("Notes should still be saved correctly")
+	}
+}
+
+// TestCCOmitEmpty tests that empty CC maps are omitted from JSON
+func TestCCOmitEmpty(t *testing.T) {
+	p := New(16)
+	p.Clear()
+	p.SetNote(1, 60)
+
+	// Step 1 has no CC automation
+	pf := p.ToPatternFile("test")
+
+	// Find step 1
+	var step1 *PatternStep
+	for i := range pf.Steps {
+		if pf.Steps[i].Step == 1 {
+			step1 = &pf.Steps[i]
+			break
+		}
+	}
+
+	if step1 == nil {
+		t.Fatal("Step 1 not found in PatternFile")
+	}
+
+	// CC field should be nil (omitempty)
+	if step1.CC != nil {
+		t.Error("Steps without CC automation should have nil CC field in JSON")
+	}
+}
+
+// TestInvalidCCInJSON tests handling of invalid CC data during load
+func TestInvalidCCInJSON(t *testing.T) {
+	// This test verifies that invalid CC data in JSON is handled gracefully
+	pf := &PatternFile{
+		Name:   "test",
+		Tempo:  80,
+		Length: 16,
+		Steps: []PatternStep{
+			{
+				Step: 1,
+				Note: "C4",
+				CC: map[string]int{
+					"74":  127,  // Valid
+					"256": 100,  // Invalid CC number (should be skipped)
+					"71":  200,  // Invalid value (should be skipped)
+					"abc": 50,   // Invalid CC number format (should be skipped)
+				},
+			},
+		},
+	}
+
+	// This should not error, but should skip invalid entries
+	p, err := FromPatternFile(pf)
+	if err != nil {
+		t.Fatalf("FromPatternFile should not error on invalid CC data: %v", err)
+	}
+
+	// Only the valid CC#74 should be loaded
+	if p.Steps[0].CCValues == nil {
+		t.Fatal("Step should have CC values")
+	}
+
+	// CC#74 should be present
+	if value, ok := p.Steps[0].CCValues[74]; !ok || value != 127 {
+		t.Error("Valid CC#74 should be loaded")
+	}
+
+	// Invalid entries should not be present (or length should be 1)
+	if len(p.Steps[0].CCValues) != 1 {
+		t.Errorf("Only valid CC entries should be loaded, got %d entries", len(p.Steps[0].CCValues))
+	}
+}
+
+// TestSetStepCC tests setting per-step CC automation
+func TestSetStepCC(t *testing.T) {
+	p := New(16)
+
+	// Valid CC
+	err := p.SetStepCC(1, 74, 127)
+	if err != nil {
+		t.Errorf("SetStepCC(1, 74, 127) unexpected error: %v", err)
+	}
+
+	// Verify it was set
+	value, ok := p.GetStepCC(1, 74)
+	if !ok {
+		t.Error("SetStepCC(1, 74, 127) did not set value")
+	}
+	if value != 127 {
+		t.Errorf("GetStepCC(1, 74) = %d, want 127", value)
+	}
+
+	// Invalid step
+	err = p.SetStepCC(0, 74, 100)
+	if err == nil {
+		t.Error("SetStepCC(0, 74, 100) should return error for invalid step")
+	}
+
+	// Invalid CC number
+	err = p.SetStepCC(1, 128, 100)
+	if err == nil {
+		t.Error("SetStepCC(1, 128, 100) should return error for invalid CC number")
+	}
+
+	// Invalid value
+	err = p.SetStepCC(1, 74, 128)
+	if err == nil {
+		t.Error("SetStepCC(1, 74, 128) should return error for invalid value")
+	}
+}
+
+// TestGetStepCC tests getting per-step CC values
+func TestGetStepCC(t *testing.T) {
+	p := New(16)
+
+	// Get non-existent CC
+	value, ok := p.GetStepCC(1, 74)
+	if ok {
+		t.Error("GetStepCC should return false for non-existent CC")
+	}
+
+	// Set and get
+	p.SetStepCC(1, 74, 100)
+	value, ok = p.GetStepCC(1, 74)
+	if !ok {
+		t.Error("GetStepCC should return true for existing CC")
+	}
+	if value != 100 {
+		t.Errorf("GetStepCC(1, 74) = %d, want 100", value)
+	}
+
+	// Multiple CCs on same step
+	p.SetStepCC(1, 71, 80)
+	value, ok = p.GetStepCC(1, 71)
+	if !ok || value != 80 {
+		t.Errorf("GetStepCC(1, 71) = (%d, %v), want (80, true)", value, ok)
+	}
+
+	// Different step
+	p.SetStepCC(5, 74, 20)
+	value, ok = p.GetStepCC(5, 74)
+	if !ok || value != 20 {
+		t.Errorf("GetStepCC(5, 74) = (%d, %v), want (20, true)", value, ok)
+	}
+}
+
+// TestClearStepCC tests clearing CC automation from steps
+func TestClearStepCC(t *testing.T) {
+	p := New(16)
+
+	// Set multiple CCs on step 1
+	p.SetStepCC(1, 74, 127)
+	p.SetStepCC(1, 71, 64)
+
+	// Clear specific CC
+	err := p.ClearStepCC(1, 74)
+	if err != nil {
+		t.Errorf("ClearStepCC(1, 74) unexpected error: %v", err)
+	}
+
+	// Verify CC#74 is cleared
+	_, ok := p.GetStepCC(1, 74)
+	if ok {
+		t.Error("CC#74 should be cleared from step 1")
+	}
+
+	// Verify CC#71 still exists
+	value, ok := p.GetStepCC(1, 71)
+	if !ok || value != 64 {
+		t.Error("CC#71 should still exist on step 1")
+	}
+
+	// Clear all CCs from step
+	err = p.ClearStepCC(1, -1)
+	if err != nil {
+		t.Errorf("ClearStepCC(1, -1) unexpected error: %v", err)
+	}
+
+	// Verify all CCs are cleared
+	_, ok = p.GetStepCC(1, 71)
+	if ok {
+		t.Error("All CCs should be cleared from step 1")
+	}
+
+	// CCValues should be nil after clearing all
+	if p.Steps[0].CCValues != nil {
+		t.Error("Step CCValues should be nil after clearing all")
+	}
+
+	// Clearing from step with no CC should not error
+	err = p.ClearStepCC(2, 74)
+	if err != nil {
+		t.Errorf("ClearStepCC on step with no CC should not error: %v", err)
+	}
+}
+
+// TestApplyGlobalCC tests converting global CC to per-step automation
+func TestApplyGlobalCC(t *testing.T) {
+	p := New(16)
+	p.Clear()
+
+	// Set some notes
+	p.SetNote(1, 60)
+	p.SetNote(5, 67)
+	p.SetNote(9, 72)
+
+	// Set global CC
+	p.SetGlobalCC(74, 100)
+
+	// Apply to all steps with notes
+	err := p.ApplyGlobalCC(74)
+	if err != nil {
+		t.Errorf("ApplyGlobalCC(74) unexpected error: %v", err)
+	}
+
+	// Verify steps with notes have CC
+	value, ok := p.GetStepCC(1, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 1 should have CC#74=100 after apply, got (%d, %v)", value, ok)
+	}
+
+	value, ok = p.GetStepCC(5, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 5 should have CC#74=100 after apply, got (%d, %v)", value, ok)
+	}
+
+	value, ok = p.GetStepCC(9, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 9 should have CC#74=100 after apply, got (%d, %v)", value, ok)
+	}
+
+	// Verify steps without notes don't have CC
+	_, ok = p.GetStepCC(2, 74)
+	if ok {
+		t.Error("Step 2 (rest) should not have CC after apply")
+	}
+
+	// Error if global CC not set
+	err = p.ApplyGlobalCC(71)
+	if err == nil {
+		t.Error("ApplyGlobalCC should error if global CC not set")
+	}
+}
+
+// TestApplyGlobalCCOverwrite tests that cc-apply overwrites existing values
+func TestApplyGlobalCCOverwrite(t *testing.T) {
+	p := New(16)
+	p.Clear()
+
+	// Set notes with existing CC automation
+	p.SetNote(1, 60)
+	p.SetStepCC(1, 74, 50) // Existing automation
+
+	// Set different global CC
+	p.SetGlobalCC(74, 100)
+
+	// Apply should overwrite
+	err := p.ApplyGlobalCC(74)
+	if err != nil {
+		t.Errorf("ApplyGlobalCC(74) unexpected error: %v", err)
+	}
+
+	// Verify value was overwritten
+	value, ok := p.GetStepCC(1, 74)
+	if !ok || value != 100 {
+		t.Errorf("Step 1 CC#74 should be overwritten to 100, got (%d, %v)", value, ok)
+	}
+}
+
+// TestCCDisplayInString verifies that CC automation is displayed in pattern String() output
+func TestCCDisplayInString(t *testing.T) {
+	p := New(16)
+
+	// Set notes with CC automation
+	p.SetNote(1, 48) // C3
+	p.SetStepCC(1, 74, 127)
+
+	p.SetNote(5, 55) // G3
+	p.SetStepCC(5, 74, 64)
+	p.SetStepCC(5, 71, 100) // Multiple CC on same step
+
+	// Get string representation
+	output := p.String()
+
+	// Verify CC indicators appear in output
+	if !contains(output, "C3") {
+		t.Error("Output should contain note C3")
+	}
+	if !contains(output, "[CC74:127]") {
+		t.Error("Output should contain [CC74:127] indicator for step 1")
+	}
+	if !contains(output, "G3") {
+		t.Error("Output should contain note G3")
+	}
+	// Step 5 should have both CC values displayed (order may vary due to map iteration)
+	if !contains(output, "CC74:64") {
+		t.Error("Output should contain CC74:64 indicator for step 5")
+	}
+	if !contains(output, "CC71:100") {
+		t.Error("Output should contain CC71:100 indicator for step 5")
+	}
+
+	// Verify rests don't show CC indicators (shouldn't have CC anyway)
+	p.SetRest(1)
+	output = p.String()
+	if contains(output, "[CC74:127]") {
+		t.Error("Rest steps should not show CC indicators")
+	}
+}
+
+// Helper function to check if a string contains a substring
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && containsCheck(s, substr))
+}
+
+func containsCheck(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}

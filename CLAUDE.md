@@ -81,16 +81,14 @@ Initial focus is on exploration and playing around with the tool before consider
 
 ### Core Modules (Permanent)
 
-- `midi/` - MIDI connection and message sending
-- `sequence/` - Sequence state and note manipulation logic
+- `midi/` - MIDI connection and message sending (notes + CC)
+- `sequence/` - Sequence state and manipulation logic (notes, velocity, gate, CC)
 - `playback/` - Background loop that continuously plays the sequence
+- `commands/` - CLI command parser (kept as foundation for AI execution)
+- `ai/` - Natural language interpretation and command generation
 - `main.go` - Orchestrates all components
 
-### Temporary Modules (To Be Replaced)
-
-- `commands/` - CLI command parser (will be replaced with AI in Phase 3)
-
-This isolation allows easy replacement: when AI is integrated, delete `commands/` and add `ai/` that interprets natural language and calls the same underlying sequence manipulation functions.
+**Note**: The `commands/` module was originally planned as temporary but is now permanent. It serves as the execution foundation that both direct user commands and AI-generated commands use. The AI doesn't replace commands—it generates them.
 
 ## Core Design Decisions
 
@@ -256,10 +254,132 @@ Future extensions can add: velocity, gate length, synth parameters per step
 - `clear-chat` command resets conversation context
 - Empty line (Enter) shows current pattern
 
-### Phase 4: Advanced MIDI Features
-- Synth parameter control via MIDI CC (filter, resonance, envelope, LFO)
-- Integration with Waldorf MIDI implementation chart
-- AI suggestions for synth parameters, not just notes
+### Phase 4: MIDI CC Parameter Control (In Progress)
+
+**Philosophy**: Build generic MIDI CC foundation first, then layer synth-specific intelligence through profiles in later phases.
+
+**Phase 4a: Generic MIDI CC Control** (Current Focus)
+- Send any MIDI CC (Control Change) message: CC number 0-127, value 0-127
+- Per-step CC automation (like velocity/gate): different CC values per step
+- Multiple CC parameters per step (filter + resonance + envelope on same step)
+- Save/load CC data with patterns (JSON persistence)
+- Visual feedback showing active CC values per step
+- Works with any MIDI synthesizer without configuration
+
+**Commands**:
+```
+cc <number> <value>              # Set global CC (e.g., cc 74 64 for filter)
+cc-step <step> <number> <value>  # Set CC for specific step
+cc-clear <step> <number>         # Remove CC automation from step
+cc-show                          # Display all active CC automations
+```
+
+**Example Usage**:
+```
+> set 1 C3                       # Step 1: Note C3
+> cc-step 1 74 127               # Step 1: Filter fully open (CC#74 = 127)
+> cc-step 1 71 64                # Step 1: Medium resonance (CC#71 = 64)
+> set 5 G2
+> cc-step 5 74 20                # Step 5: Filter nearly closed (dark sound)
+> save dark-sweep
+```
+
+**Phase 4b: Synth Profile System** (Future)
+- Auto-detect connected synthesizer (MIDI device name matching)
+- Load synth profiles from `profiles/` directory
+- Profile format: JSON with CC mappings, parameter names, musical context
+- Friendly parameter names: "filter" instead of "CC#74"
+- AI uses profile to understand synth capabilities
+- Ships with hand-crafted profiles: Waldorf Robot, generic subtractive synth
+
+**Phase 4c: AI Sound Design Intelligence** (Future)
+- Profile-aware natural language: "make it darker" → AI knows which CC
+- Musical intent mapping: "add aggression" → increase resonance
+- Parameter automation suggestions: "add movement" → LFO or filter sweep
+- Creative dissonance: "make it harsher" → extreme resonance values
+- Synth-specific techniques based on profile context
+
+**Phase 4d: Interplay Profile Builder** (Separate Tool - Future)
+- Standalone application for creating synth profiles
+- AI-powered PDF extraction from MIDI implementation charts
+- Interactive profile refinement and testing
+- Exports JSON profiles for use in main Interplay app
+- Separate repository: `interplay-profile-builder`
+
+**Design Decisions**:
+- **Generic first**: CC control works without profiles (plug-and-play principle)
+- **Synth-agnostic**: Any MIDI device works, profiles enhance the experience
+- **Separate tools**: Profile builder is optional, doesn't bloat main app
+- **Loop boundary sync**: CC changes queue and apply at loop start (like notes)
+- **JSON persistence**: CC data stored with patterns for reproducibility
+
+**Technical Architecture for Phase 4a**:
+
+**Data Model Extension**:
+```go
+// Existing Step structure (Phase 1-3)
+type Step struct {
+    Note     *int  // MIDI note number (nil = rest)
+    Velocity int   // 0-127
+    Gate     int   // Percentage 0-100
+}
+
+// Phase 4a: Add CC automation
+type Step struct {
+    Note       *int            // MIDI note number (nil = rest)
+    Velocity   int             // 0-127
+    Gate       int             // Percentage 0-100
+    CCValues   map[int]int     // CC# → Value (e.g., 74 → 127 for filter)
+}
+```
+
+**MIDI Message Flow**:
+1. Pattern loop reaches step boundary
+2. For each step with active notes or CC values:
+   - Send Note On (if Note != nil)
+   - Send CC messages (for each entry in CCValues map)
+   - Queue Note Off based on gate length
+3. CC messages sent alongside notes, same timing guarantees
+
+**Command Implementation**:
+- `cc <number> <value>` - Sets CC globally, applies to all future steps until changed
+- `cc-step <step> <number> <value>` - Sets CC for specific step, stored in CCValues map
+- Pattern persistence: Serialize CCValues map in JSON alongside notes/velocity/gate
+
+**JSON Pattern Format (Phase 4a)**:
+```json
+{
+  "name": "Dark Filter Sweep",
+  "tempo": 80,
+  "steps": [
+    {
+      "step": 1,
+      "note": "C3",
+      "velocity": 100,
+      "gate": 90,
+      "cc": {
+        "74": 127,  // Filter cutoff fully open
+        "71": 64    // Medium resonance
+      }
+    },
+    {
+      "step": 5,
+      "note": "G2",
+      "velocity": 80,
+      "gate": 90,
+      "cc": {
+        "74": 20    // Filter cutoff nearly closed
+      }
+    }
+  ]
+}
+```
+
+**Future Extension Points** (for Phase 4b/4c):
+- `profiles/` directory for synth-specific profiles
+- Profile loading on synth detection
+- AI integration point: translate "make it darker" → `cc-step` commands
+- Profile format already designed, just not implemented yet
 
 ### Phase 5: Live Performance Features
 - MIDI controller input (separate MIDI controller device)
@@ -273,3 +393,9 @@ Future extensions can add: velocity, gate length, synth parameters per step
 - Performance mode vs. rehearsal mode
 - Keyboard shortcuts for critical operations
 - Pattern transition options (immediate, next bar, next 4 bars)
+
+## Active Technologies
+- JSON files in `patterns/` directory (existing pattern persistence system) (001-midi-cc-control)
+
+## Recent Changes
+- 001-midi-cc-control: Added Go 1.25.4

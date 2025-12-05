@@ -73,6 +73,16 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleSwing(parts)
 	case "length":
 		return h.handleLength(parts)
+	case "cc":
+		return h.handleCC(parts)
+	case "cc-step":
+		return h.handleCCStep(parts)
+	case "cc-clear":
+		return h.handleCCClear(parts)
+	case "cc-apply":
+		return h.handleCCApply(parts)
+	case "cc-show":
+		return h.handleCCShow(parts)
 	case "show":
 		return h.handleShow(parts)
 	case "verbose":
@@ -96,10 +106,11 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 	}
 }
 
-// handleSet: set <step> <note> [dur:<steps>]
+// handleSet: set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]
 func (h *Handler) handleSet(parts []string) error {
-	if len(parts) < 3 || len(parts) > 4 {
-		return fmt.Errorf("usage: set <step> <note> [dur:<steps>] (e.g., 'set 1 C4' or 'set 1 C4 dur:4')")
+	if len(parts) < 3 {
+		return fmt.Errorf("usage: set <step> <note|rest> [vel:<value>] [gate:<percent>] [dur:<steps>]\n" +
+			"e.g., 'set 1 C4' or 'set 1 rest' or 'set 1 C4 vel:120 gate:85 dur:3'")
 	}
 
 	stepNum, err := strconv.Atoi(parts[1])
@@ -108,6 +119,17 @@ func (h *Handler) handleSet(parts []string) error {
 	}
 
 	noteName := parts[2]
+
+	// Check if user wants to set a rest
+	if strings.ToLower(noteName) == "rest" {
+		err := h.pattern.SetRest(stepNum)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Set step %d to rest\n", stepNum)
+		return nil
+	}
+
 	midiNote, err := sequence.NoteNameToMIDI(noteName)
 	if err != nil {
 		return err
@@ -116,11 +138,39 @@ func (h *Handler) handleSet(parts []string) error {
 	// Get pattern length for validation
 	patternLen := h.pattern.Length()
 
-	// Check for optional duration parameter
+	// Parse optional parameters
+	var velocity *uint8
+	var gate *int
 	duration := 1 // default
-	if len(parts) == 4 {
-		if strings.HasPrefix(parts[3], "dur:") {
-			durStr := strings.TrimPrefix(parts[3], "dur:")
+
+	for i := 3; i < len(parts); i++ {
+		param := parts[i]
+
+		if strings.HasPrefix(param, "vel:") {
+			velStr := strings.TrimPrefix(param, "vel:")
+			velInt, err := strconv.Atoi(velStr)
+			if err != nil {
+				return fmt.Errorf("invalid velocity: %s", velStr)
+			}
+			if velInt < 0 || velInt > 127 {
+				return fmt.Errorf("velocity must be 0-127, got %d", velInt)
+			}
+			vel := uint8(velInt)
+			velocity = &vel
+
+		} else if strings.HasPrefix(param, "gate:") {
+			gateStr := strings.TrimPrefix(param, "gate:")
+			gateInt, err := strconv.Atoi(gateStr)
+			if err != nil {
+				return fmt.Errorf("invalid gate: %s", gateStr)
+			}
+			if gateInt < 1 || gateInt > 100 {
+				return fmt.Errorf("gate must be 1-100%%, got %d", gateInt)
+			}
+			gate = &gateInt
+
+		} else if strings.HasPrefix(param, "dur:") {
+			durStr := strings.TrimPrefix(param, "dur:")
 			duration, err = strconv.Atoi(durStr)
 			if err != nil {
 				return fmt.Errorf("invalid duration: %s", durStr)
@@ -128,22 +178,48 @@ func (h *Handler) handleSet(parts []string) error {
 			if duration < 1 || duration > patternLen {
 				return fmt.Errorf("duration must be 1-%d steps", patternLen)
 			}
+
 		} else {
-			return fmt.Errorf("unknown parameter: %s (expected dur:<steps>)", parts[3])
+			return fmt.Errorf("unknown parameter: %s (expected vel:, gate:, or dur:)", param)
 		}
 	}
 
-	// Use SetNoteWithDuration to support duration
+	// Set the note with duration
 	err = h.pattern.SetNoteWithDuration(stepNum, midiNote, duration)
 	if err != nil {
 		return err
 	}
 
-	if duration > 1 {
-		fmt.Printf("Set step %d to %s (MIDI %d, duration: %d steps)\n", stepNum, noteName, midiNote, duration)
-	} else {
-		fmt.Printf("Set step %d to %s (MIDI %d)\n", stepNum, noteName, midiNote)
+	// Apply velocity if specified
+	if velocity != nil {
+		err = h.pattern.SetVelocity(stepNum, *velocity)
+		if err != nil {
+			return err
+		}
 	}
+
+	// Apply gate if specified
+	if gate != nil {
+		err = h.pattern.SetGate(stepNum, *gate)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Build output message
+	msg := fmt.Sprintf("Set step %d to %s (MIDI %d", stepNum, noteName, midiNote)
+	if velocity != nil {
+		msg += fmt.Sprintf(", vel:%d", *velocity)
+	}
+	if gate != nil {
+		msg += fmt.Sprintf(", gate:%d%%", *gate)
+	}
+	if duration > 1 {
+		msg += fmt.Sprintf(", dur:%d", duration)
+	}
+	msg += ")"
+	fmt.Println(msg)
+
 	return nil
 }
 
@@ -462,6 +538,24 @@ func (h *Handler) handleSave(parts []string) error {
 	// Join remaining parts as the name (allows spaces)
 	name := strings.Join(parts[1:], " ")
 
+	// Warn if global CC values exist (they won't be saved)
+	globalCC := h.pattern.GetAllGlobalCC()
+	if len(globalCC) > 0 {
+		fmt.Println("⚠️  Warning: Global CC values will not be saved (they are transient).")
+		fmt.Print("   Affected CC numbers: ")
+		first := true
+		for ccNum := range globalCC {
+			if !first {
+				fmt.Print(", ")
+			}
+			fmt.Printf("CC#%d", ccNum)
+			first = false
+		}
+		fmt.Println()
+		fmt.Println("   Use 'cc-apply <cc-number>' to convert global CC to per-step automation before saving.")
+		fmt.Println()
+	}
+
 	err := h.pattern.Save(name)
 	if err != nil {
 		return fmt.Errorf("failed to save pattern: %w", err)
@@ -627,6 +721,8 @@ func (h *Handler) isKnownCommand(input string) bool {
 	cmd := strings.ToLower(parts[0])
 	knownCommands := []string{
 		"set", "rest", "clear", "reset", "tempo", "velocity", "gate", "length",
+		"humanize", "swing",
+		"cc", "cc-step", "cc-clear", "cc-apply", "cc-show",
 		"show", "verbose", "save", "load", "list", "delete",
 		"clear-chat", "help", "quit",
 	}
@@ -689,10 +785,12 @@ func (h *Handler) handleHelp(parts []string) error {
 	patternLen := h.pattern.Length()
 
 	helpText := fmt.Sprintf(`Available commands:
-  set <step> <note> [dur:<steps>]
-                          Set a step to play a note (e.g., 'set 1 C4')
-                          Optional dur: specifies note duration in steps (e.g., 'set 1 C4 dur:4')
+  set <step> <note|rest> [vel:<val>] [gate:<%%>] [dur:<steps>]
+                          Set a step to play a note or rest
+                          (e.g., 'set 1 C4', 'set 1 rest', 'set 1 C4 vel:120 gate:85 dur:3')
+                          Optional parameters can be combined in any order
   rest <step>             Set a step to rest/silence (e.g., 'rest 1')
+                          Same as 'set <step> rest'
   velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
   gate <step> <percent>   Set step gate length 1-100%% (e.g., 'gate 1 50')
   humanize <type> <amt>   Add random variation (e.g., 'humanize velocity 10')
@@ -700,11 +798,21 @@ func (h *Handler) handleHelp(parts []string) error {
                           Use 'humanize' alone to show current settings
   swing <percent>         Add swing/groove (e.g., 'swing 50' for triplet swing)
                           0 = straight, 50 = triplet, 66 = hard swing (0-75)
+  cc <cc-num> <val>       Set global CC value (transient, not saved)
+                          e.g., 'cc 74 127' sets filter cutoff to max
+  cc-step <step> <cc> <val>
+                          Set per-step CC automation (persistent, saved)
+                          e.g., 'cc-step 1 74 127' sets filter on step 1
+  cc-clear <step> [cc]    Clear CC automation from a step
+                          e.g., 'cc-clear 1' clears all CC, 'cc-clear 1 74' clears CC#74
+  cc-apply <cc-num>       Apply global CC to all steps with notes
+                          e.g., 'cc-apply 74' converts global CC#74 to per-step
+  cc-show                 Display all CC automation in table format
   length <steps>          Set pattern length (e.g., 'length 32')
   clear                   Clear all steps to rests
   reset                   Reset to default 16-step pattern
   tempo <bpm>             Change tempo (e.g., 'tempo 120')
-  show                    Display current pattern
+  show                    Display current pattern (CC automation shown in brackets)
   verbose [on|off]        Toggle or set verbose step output
   save <name>             Save current pattern (e.g., 'save bass_line')
   load <name>             Load a saved pattern (e.g., 'load bass_line')
@@ -720,7 +828,7 @@ func (h *Handler) handleHelp(parts []string) error {
   <enter>                 Show current pattern (same as 'show')
 
 Notes: C4, D#5, Bb3, etc. | Steps: 1-%d | Duration: 1-%d steps (default 1)
-Default velocity: 100 | Default gate: 90%%
+Default velocity: 100 | Default gate: 90%% | CC numbers/values: 0-127
 Patterns saved in 'patterns/' directory as JSON files.
 AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus, patternLen, patternLen)
 
