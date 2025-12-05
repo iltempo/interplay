@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/chzyer/readline"
@@ -55,6 +56,11 @@ func processBatchInput(reader io.Reader, handler *commands.Handler) (bool, bool)
 
 		// Echo command for progress feedback
 		fmt.Println(">", line)
+
+		// Show waiting indicator for AI commands (they can take several seconds)
+		if strings.HasPrefix(strings.ToLower(line), "ai ") {
+			fmt.Println("⏳ Waiting for AI response...")
+		}
 
 		// Process command
 		if err := handler.ProcessCommand(line); err != nil {
@@ -146,13 +152,16 @@ func main() {
 
 	// Start playback in background
 	engine.Start()
-	defer engine.Stop()
 
-	// Setup cleanup function for graceful shutdown
+	// Setup cleanup function for graceful shutdown (use sync.Once to prevent double-close)
+	var cleanupOnce sync.Once
 	cleanup := func() {
-		engine.Stop()
-		midiOut.Close()
+		cleanupOnce.Do(func() {
+			engine.Stop()
+			midiOut.Close()
+		})
 	}
+	defer cleanup()
 
 	// Setup signal handler for Ctrl+C to ensure clean shutdown
 	sigChan := make(chan os.Signal, 1)
