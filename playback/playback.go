@@ -133,6 +133,17 @@ func (e *Engine) playbackLoop() {
 			// Get the current step from our cloned pattern
 			step := pattern.Steps[stepIdx]
 
+			// Send CC messages for this step (even on rest steps)
+			// This allows parameter automation without notes (e.g., filter sweeps on sustained notes)
+			if len(step.CCValues) > 0 {
+				for ccNum, value := range step.CCValues {
+					err := e.midiOut.SendCC(channel, uint8(ccNum), uint8(value))
+					if err != nil {
+						fmt.Printf("Error sending CC#%d: %v\n", ccNum, err)
+					}
+				}
+			}
+
 			if !step.IsRest {
 				velocity := step.Velocity
 				if velocity == 0 {
@@ -179,16 +190,6 @@ func (e *Engine) playbackLoop() {
 						fmt.Printf("Error sending Note Off (retrigger): %v\n", err)
 					}
 					delete(activeNotes, step.Note)
-				}
-
-				// Send CC messages for this step before Note On (ensures parameters are set before note triggers)
-				if len(step.CCValues) > 0 {
-					for ccNum, value := range step.CCValues {
-						err := e.midiOut.SendCC(channel, uint8(ccNum), uint8(value))
-						if err != nil {
-							fmt.Printf("Error sending CC#%d: %v\n", ccNum, err)
-						}
-					}
 				}
 
 				// Send Note On with humanized velocity
