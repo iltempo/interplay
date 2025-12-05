@@ -25,8 +25,8 @@
 
 **Purpose**: Add dependencies and prepare project for batch mode implementation
 
-- [ ] T001 Add `github.com/mattn/go-isatty` dependency via `go get github.com/mattn/go-isatty` and run `go mod tidy`
-- [ ] T002 [P] Update CLAUDE.md to document batch mode in Phase 4 listing with brief description
+- [X] T001 Add `github.com/mattn/go-isatty` dependency via `go get github.com/mattn/go-isatty` and run `go mod tidy`
+- [X] T002 [P] Update CLAUDE.md to document batch mode in Phase 4 listing with brief description
 
 **Checkpoint**: Dependencies installed, documentation updated
 
@@ -38,9 +38,9 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T003 Add `isTerminal()` helper function in main.go using `isatty.IsTerminal()` and `isatty.IsCygwinTerminal()` for cross-platform terminal detection
-- [ ] T004 Add flag parsing for `--script` flag in main.go at top of `main()` function before MIDI port listing
-- [ ] T005 Add `processBatchInput(reader io.Reader, handler *commands.Handler) bool` function in main.go to process commands line-by-line using bufio.Scanner
+- [X] T003 Add `isTerminal()` helper function in main.go using `isatty.IsTerminal()` and `isatty.IsCygwinTerminal()` for cross-platform terminal detection
+- [X] T004 Add flag parsing for `--script` flag in main.go at top of `main()` function before MIDI port listing
+- [X] T005 Add `processBatchInput(reader io.Reader, handler *commands.Handler) bool` function in main.go to process commands line-by-line using bufio.Scanner
 
 **Checkpoint**: Foundation ready - stdin detection works, flag parsing in place, batch processor function exists
 
@@ -54,13 +54,13 @@
 
 ### Implementation for User Story 1
 
-- [ ] T006 [US1] Modify main.go `main()` function to detect stdin mode using `isTerminal()` and route to batch vs interactive processing
-- [ ] T007 [US1] Implement piped input handling in main.go: when stdin is piped (not terminal), call `processBatchInput(os.Stdin, cmdHandler)`
-- [ ] T008 [US1] Add comment handling in `processBatchInput()`: skip lines starting with `#` and print them for visibility
-- [ ] T009 [US1] Add empty line handling in `processBatchInput()`: skip empty lines after `strings.TrimSpace()`
-- [ ] T010 [US1] Add command echo in `processBatchInput()`: print each command before execution for progress feedback
-- [ ] T011 [US1] Add error tracking in `processBatchInput()`: track errors with `hadErrors` bool but continue processing remaining commands
-- [ ] T012 [US1] Handle transition to interactive mode: after `processBatchInput()` completes for piped input, check if stdin still open and continue to existing `ReadLoop()`
+- [X] T006 [US1] Modify main.go `main()` function to detect stdin mode using `isTerminal()` and route to batch vs interactive processing
+- [X] T007 [US1] Implement piped input handling in main.go: when stdin is piped (not terminal), call `processBatchInput(os.Stdin, cmdHandler)`
+- [X] T008 [US1] Add comment handling in `processBatchInput()`: skip lines starting with `#` and print them for visibility
+- [X] T009 [US1] Add empty line handling in `processBatchInput()`: skip empty lines after `strings.TrimSpace()`
+- [X] T010 [US1] Add command echo in `processBatchInput()`: print each command before execution for progress feedback
+- [X] T011 [US1] Add error tracking in `processBatchInput()`: track errors with `hadErrors` bool but continue processing remaining commands
+- [X] T012 [US1] Handle transition to interactive mode: after `processBatchInput()` completes for piped input, check if stdin still open and continue to existing `ReadLoop()`
 
 **Checkpoint**: User Story 1 complete - can pipe commands from file with interactive continuation
 
@@ -86,13 +86,13 @@ echo "" | ./interplay
 
 ### Implementation for User Story 2
 
-- [ ] T013 [US2] Modify `processBatchInput()` to return success boolean based on `hadErrors` flag
-- [ ] T014 [US2] Update main.go piped input handling to check `processBatchInput()` return value and handle exit behavior
-- [ ] T015 [US2] Implement exit command recognition: detect `exit` command in `processBatchInput()` and set flag to terminate after processing
-- [ ] T016 [US2] Implement exit code logic in main.go: exit with code 0 if `exit` command present and no errors, code 1 if any errors occurred
-- [ ] T017 [US2] Modify default behavior to continue running with playback loop after batch processing completes (unless `exit` command present)
-- [ ] T018 [P] [US2] Add destructive operation warnings in commands/save.go: check if file exists before save in batch mode and warn user
-- [ ] T019 [P] [US2] Add destructive operation warnings in commands/delete.go: warn before deleting pattern files in batch mode
+- [X] T013 [US2] Modify `processBatchInput()` to return success boolean based on `hadErrors` flag
+- [X] T014 [US2] Update main.go piped input handling to check `processBatchInput()` return value and handle exit behavior
+- [X] T015 [US2] Implement exit command recognition: detect `exit` command in `processBatchInput()` and set flag to terminate after processing
+- [X] T016 [US2] Implement exit code logic in main.go: exit with code 0 if `exit` command present and no errors, code 1 if any errors occurred
+- [X] T017 [US2] Modify default behavior to continue running with playback loop after batch processing completes (unless `exit` command present)
+- [X] T018 [P] [US2] Add destructive operation warnings in commands/save.go: check if file exists before save in batch mode and warn user
+- [X] T019 [P] [US2] Add destructive operation warnings in commands/delete.go: warn before deleting pattern files in batch mode
 
 **Checkpoint**: User Story 2 complete - batch execution with configurable exit behavior and warnings
 
@@ -121,12 +121,12 @@ echo $?  # Should print 1 (if exit command present)
 
 ### Implementation for User Story 3
 
-- [ ] T020 [US3] Implement script file mode in main.go: when `--script` flag is set, open file and validate it exists
-- [ ] T021 [US3] Add error handling for script file: print clear error message to stderr and exit with code 2 if file doesn't exist
-- [ ] T022 [US3] Route script file to `processBatchInput()`: pass file reader to batch processor function
-- [ ] T023 [US3] Handle script file exit behavior: always exit after processing (equivalent to `cat file | app` without interactive transition)
-- [ ] T024 [US3] Add help text documentation: update flag description to document `--script` flag usage
-- [ ] T025 [US3] Verify AI command compatibility: test that `ai <prompt>` commands work in script files (no code changes needed, verification only)
+- [X] T020 [US3] Implement script file mode in main.go: when `--script` flag is set, open file and validate it exists
+- [X] T021 [US3] Add error handling for script file: print clear error message to stderr and exit with code 2 if file doesn't exist
+- [X] T022 [US3] Route script file to `processBatchInput()`: pass file reader to batch processor function
+- [X] T023 [US3] Handle script file exit behavior: always exit after processing (equivalent to `cat file | app` without interactive transition)
+- [X] T024 [US3] Add help text documentation: update flag description to document `--script` flag usage
+- [X] T025 [US3] Verify AI command compatibility: test that `ai <prompt>` commands work in script files (no code changes needed, verification only)
 
 **Checkpoint**: User Story 3 complete - script file flag functional with help documentation
 
@@ -158,11 +158,11 @@ EOF
 
 **Purpose**: Improvements and validation across all user stories
 
-- [ ] T026 [P] Add comprehensive example scripts in patterns/ directory: create example-batch-setup.txt with performance setup workflow
-- [ ] T027 [P] Update README.md: add batch mode section with usage examples for all three input modes
-- [ ] T028 Validate quickstart.md scenarios: run through all smoke tests and integration tests from quickstart.md
-- [ ] T029 Validate cross-platform compatibility: test on macOS terminal, Linux terminal, Windows Git Bash with piped input
-- [ ] T030 [P] Performance validation: create 50-command script and verify execution completes in under 5 seconds (excluding MIDI/AI time)
+- [X] T026 [P] Add comprehensive example scripts in patterns/ directory: create example-batch-setup.txt with performance setup workflow
+- [X] T027 [P] Update README.md: add batch mode section with usage examples for all three input modes
+- [X] T028 Validate quickstart.md scenarios: run through all smoke tests and integration tests from quickstart.md
+- [X] T029 Validate cross-platform compatibility: test on macOS terminal, Linux terminal, Windows Git Bash with piped input
+- [X] T030 [P] Performance validation: create 50-command script and verify execution completes in under 5 seconds (excluding MIDI/AI time)
 
 ---
 
