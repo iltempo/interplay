@@ -32,17 +32,20 @@ Available commands:
 - save <name>: Save current pattern
 - load <name>: Load a saved pattern
 
-Parameter limits:
+Parameter limits (IMPORTANT: values are plain numbers, NO %% symbols in commands):
 - Steps: 1-%d (pattern length)
 - Notes: C0-C8 (e.g., C3, D#4, Bb2)
-- Velocity (vel): 0-127 (higher = louder)
-- Gate: 1-100%% (lower = shorter/staccato)
+- Velocity (vel): 0-127 plain number (higher = louder)
+- Gate: 1-100 plain number (represents percent, but use plain number)
 - Duration (dur): 1-%d steps (quarter note = dur:4)
-- CC numbers: 0-127 (74 = filter cutoff, 71 = resonance)
-- CC values: 0-127
-- Tempo: 20-300 BPM
-- Swing: 0-75%% (0=straight, 50=triplet, 66=hard)
-- Humanization: velocity 0-64, timing 0-50ms, gate 0-50%%
+- CC numbers: 0-127 plain number (74 = filter cutoff, 71 = resonance)
+- CC values: 0-127 plain number
+- Tempo: 20-300 plain number
+- Swing: 0-75 plain number (represents percent, 0=straight, 50=triplet, 66=hard)
+- Humanization: velocity 0-64, timing 0-50, gate 0-50 (all plain numbers)
+
+CRITICAL: Always use plain numbers in commands, NEVER add %% symbols.
+Examples: "gate 1 85" (correct), "swing 50" (correct), NOT "gate 1 85%%" or "swing 50%%"
 
 Current pattern state will be provided. Respond ONLY with the commands to execute, one per line, no explanations. Be concise and musical.
 
@@ -86,17 +89,20 @@ Available commands in Interplay:
 - verbose [on|off]: Toggle step-by-step output
 - ai: Enter AI session mode (you!)
 
-Parameter limits:
+Parameter limits (IMPORTANT: values are plain numbers, NO %% symbols in commands):
 - Steps: 1-%d (pattern length)
 - Notes: C0-C8 (e.g., C3, D#4, Bb2)
-- Velocity: 0-127 (higher = louder)
-- Gate: 1-100%% (lower = shorter/staccato)
+- Velocity: 0-127 plain number (higher = louder)
+- Gate: 1-100 plain number (represents percent, but use plain number in commands)
 - Duration: 1-%d steps (quarter note = dur:4)
-- CC numbers: 0-127 (74 = filter cutoff, 71 = resonance, etc.)
-- CC values: 0-127
-- Tempo: 20-300 BPM
-- Swing: 0-75%% (0=straight, 50=triplet, 66=hard)
-- Humanization: velocity 0-64, timing 0-50ms, gate 0-50%%
+- CC numbers: 0-127 plain number (74 = filter cutoff, 71 = resonance, etc.)
+- CC values: 0-127 plain number
+- Tempo: 20-300 plain number
+- Swing: 0-75 plain number (represents percent, 0=straight, 50=triplet, 66=hard)
+- Humanization: velocity 0-64, timing 0-50, gate 0-50 (all plain numbers)
+
+CRITICAL: Commands use plain numbers only, NEVER add %% symbols.
+Examples: "gate 1 85" (correct), "swing 50" (correct), NOT "gate 1 85%%" or "swing 50%%"
 
 Humanization is enabled by default with subtle settings - adds organic feel.
 
@@ -133,17 +139,20 @@ Available commands:
 - show: Display current pattern
 - verbose [on|off]: Toggle step-by-step output
 
-Parameter limits:
+Parameter limits (IMPORTANT: values are plain numbers, NO %% symbols in commands):
 - Steps: 1-%d (pattern length)
 - Notes: C0-C8 (e.g., C3, D#4, Bb2)
-- Velocity: 0-127 (higher = louder)
-- Gate: 1-100%% (lower = shorter/staccato)
+- Velocity: 0-127 plain number (higher = louder)
+- Gate: 1-100 plain number (represents percent, but use plain number in commands)
 - Duration: 1-%d steps (quarter note = dur:4)
-- CC numbers: 0-127 (74 = filter cutoff, 71 = resonance, etc.)
-- CC values: 0-127
-- Tempo: 20-300 BPM
-- Swing: 0-75%% (0=straight, 50=triplet, 66=hard)
-- Humanization: velocity 0-64, timing 0-50ms, gate 0-50%% (default: velocity ±8, timing ±10ms, gate ±5%%)
+- CC numbers: 0-127 plain number (74 = filter cutoff, 71 = resonance, etc.)
+- CC values: 0-127 plain number
+- Tempo: 20-300 plain number
+- Swing: 0-75 plain number (represents percent, 0=straight, 50=triplet, 66=hard)
+- Humanization: velocity 0-64, timing 0-50, gate 0-50 (all plain numbers, defaults: velocity ±8, timing ±10, gate ±5)
+
+CRITICAL: Commands use plain numbers only, NEVER add %% symbols.
+Examples: "gate 1 85" (correct), "swing 50" (correct), NOT "gate 1 85%%" or "swing 50%%"
 
 Your role in this interactive session:
 1. Have natural conversations about music and the pattern
