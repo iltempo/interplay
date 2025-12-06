@@ -282,12 +282,31 @@ Be natural, helpful, and musical. Current pattern state will be provided with ea
 
 // Client wraps the Claude API client
 type Client struct {
-	client          anthropic.Client
+	client              anthropic.Client
+	model               anthropic.Model // Configurable model (default: Haiku)
 	conversationHistory []anthropic.MessageParam
 }
 
-// New creates a new AI client
+// SetModel changes the AI model used for subsequent requests
+func (c *Client) SetModel(model anthropic.Model) {
+	c.model = model
+}
+
+// GetModel returns the currently configured AI model
+func (c *Client) GetModel() anthropic.Model {
+	return c.model
+}
+
+// DefaultModel is the model used when no model is specified
+const DefaultModel = "claude-3-5-haiku-latest"
+
+// New creates a new AI client with the default model (Haiku)
 func New(apiKey string) (*Client, error) {
+	return NewWithModel(apiKey, DefaultModel)
+}
+
+// NewWithModel creates a new AI client with a specific model
+func NewWithModel(apiKey string, model anthropic.Model) (*Client, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
 	}
@@ -296,6 +315,7 @@ func New(apiKey string) (*Client, error) {
 
 	return &Client{
 		client: client,
+		model:  model,
 	}, nil
 }
 
@@ -305,14 +325,33 @@ func NewFromEnv() (*Client, error) {
 	return New(apiKey)
 }
 
+// NewFromEnvWithModel creates a new AI client using ANTHROPIC_API_KEY env var with a specific model
+func NewFromEnvWithModel(model anthropic.Model) (*Client, error) {
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	return NewWithModel(apiKey, model)
+}
+
 // GenerateCommands asks Claude to generate commands based on user request
 func (c *Client) GenerateCommands(ctx context.Context, userRequest string, p *sequence.Pattern) ([]string, error) {
+	commands, _, err := c.GenerateCommandsWithModel(ctx, userRequest, p, string(c.model))
+	return commands, err
+}
+
+// GenerateCommandsWithModel asks Claude to generate commands using a specific model
+// Returns the commands, the raw response text, and any error
+func (c *Client) GenerateCommandsWithModel(ctx context.Context, userRequest string, p *sequence.Pattern, model string) ([]string, string, error) {
 	patternLen := p.Length()
 	systemPrompt := fmt.Sprintf(commandSystemPromptTemplate, patternLen, patternLen, patternLen)
 	userMessage := fmt.Sprintf("Current pattern:\n%s\n\nUser request: %s", p.String(), userRequest)
 
+	// Use specified model or fall back to client's model
+	useModel := anthropic.Model(model)
+	if model == "" {
+		useModel = c.model
+	}
+
 	message, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaude3_5HaikuLatest,
+		Model:     useModel,
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
 			{Text: systemPrompt},
@@ -323,7 +362,7 @@ func (c *Client) GenerateCommands(ctx context.Context, userRequest string, p *se
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("claude API error: %w", err)
+		return nil, "", fmt.Errorf("claude API error: %w", err)
 	}
 
 	// Extract text from response
@@ -345,7 +384,7 @@ func (c *Client) GenerateCommands(ctx context.Context, userRequest string, p *se
 		}
 	}
 
-	return commands, nil
+	return commands, responseText, nil
 }
 
 // Chat asks Claude a question about the pattern and returns a conversational response
@@ -363,7 +402,7 @@ func (c *Client) Chat(ctx context.Context, question string, p *sequence.Pattern)
 
 	// Send conversation with full history
 	message, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaude3_5HaikuLatest,
+		Model:     c.model,
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
 			{Text: systemPrompt},
@@ -417,7 +456,7 @@ func (c *Client) Session(ctx context.Context, userInput string, p *sequence.Patt
 
 	// Send conversation with full history
 	message, err := c.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaude3_5HaikuLatest,
+		Model:     c.model,
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
 			{Text: systemPrompt},

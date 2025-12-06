@@ -438,6 +438,8 @@ echo -e "set 1 C3\nai add tension\nshow" | ./interplay
 
 ## Active Technologies
 - JSON files in `patterns/` directory (existing pattern persistence system) (001-midi-cc-control)
+- Go 1.25.4 + `anthropic-sdk-go` (existing), `gitlab.com/gomidi/midi/v2` (existing) (003-model-comparison)
+- JSON files in `comparisons/` directory (following existing `patterns/` convention) (003-model-comparison)
 
 ## Recent Changes
 - 001-midi-cc-control: Added Go 1.25.4

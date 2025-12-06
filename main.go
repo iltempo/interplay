@@ -12,8 +12,10 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/chzyer/readline"
 	"github.com/iltempo/interplay/commands"
+	"github.com/iltempo/interplay/comparison"
 	"github.com/iltempo/interplay/midi"
 	"github.com/iltempo/interplay/playback"
 	"github.com/iltempo/interplay/sequence"
@@ -81,7 +83,21 @@ func processBatchInput(reader io.Reader, handler *commands.Handler) (bool, bool)
 func main() {
 	// Parse command-line flags
 	scriptFile := flag.String("script", "", "execute commands from file")
+	modelFlag := flag.String("model", "", "AI model to use (haiku, sonnet, opus)")
 	flag.Parse()
+
+	// Resolve model from flag
+	var selectedModel anthropic.Model
+	if *modelFlag != "" {
+		modelConfig, found := comparison.GetModelByID(*modelFlag)
+		if !found {
+			fmt.Fprintf(os.Stderr, "Unknown model: %s\n", *modelFlag)
+			fmt.Fprintf(os.Stderr, "Available models: %s\n", strings.Join(comparison.GetModelIDs(), ", "))
+			os.Exit(1)
+		}
+		selectedModel = modelConfig.APIModel
+		fmt.Printf("Using AI model: %s\n", modelConfig.DisplayName)
+	}
 	// List available MIDI ports
 	ports, err := midi.ListPorts()
 	if err != nil {
@@ -176,7 +192,7 @@ func main() {
 	fmt.Println()
 
 	// Create command handler that modifies the "next" pattern
-	cmdHandler := commands.New(engine.GetNextPattern(), engine)
+	cmdHandler := commands.NewWithModel(engine.GetNextPattern(), engine, selectedModel)
 
 	// Handle script file mode
 	if *scriptFile != "" {
