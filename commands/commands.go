@@ -873,53 +873,57 @@ func (h *Handler) handleHelp(parts []string) error {
 	patternLen := h.pattern.Length()
 
 	helpText := fmt.Sprintf(`Available commands:
+
+PATTERN EDITING:
   set <step> <note|rest> [vel:<val>] [gate:<%%>] [dur:<steps>]
                           Set a step to play a note or rest
-                          (e.g., 'set 1 C4', 'set 1 rest', 'set 1 C4 vel:120 gate:85 dur:3')
-                          Optional parameters can be combined in any order
-  rest <step>             Set a step to rest/silence (e.g., 'rest 1')
-                          Same as 'set <step> rest'
-  velocity <step> <val>   Set step velocity 0-127 (e.g., 'velocity 1 80')
-  gate <step> <percent>   Set step gate length 1-100%% (e.g., 'gate 1 50')
-  humanize <type> <amt>   Add random variation (e.g., 'humanize velocity 10')
-                          Types: velocity (0-64), timing (0-50ms), gate (0-50)
-                          Use 'humanize' alone to show current settings
-  swing <percent>         Add swing/groove (e.g., 'swing 50' for triplet swing)
-                          0 = straight, 50 = triplet, 66 = hard swing (0-75)
-  cc <cc-num> <val>       Set global CC value (transient, not saved)
-                          e.g., 'cc 74 127' sets filter cutoff to max
-  cc-step <step> <cc> <val>
-                          Set per-step CC automation (persistent, saved)
-                          e.g., 'cc-step 1 74 127' sets filter on step 1
-  cc-clear <step> [cc]    Clear CC automation from a step
-                          e.g., 'cc-clear 1' clears all CC, 'cc-clear 1 74' clears CC#74
-  cc-apply <cc-num>       Apply global CC to all steps with notes
-                          e.g., 'cc-apply 74' converts global CC#74 to per-step
-  cc-show                 Display all CC automation in table format
-  length <steps>          Set pattern length (e.g., 'length 32')
+  rest <step>             Set a step to rest/silence
+  velocity <step> <val>   Set step velocity 0-127
+  gate <step> <percent>   Set step gate length 1-100%%
+  humanize <type> <amt>   Add random variation (velocity/timing/gate)
+  swing <percent>         Add swing/groove (0-75%%)
+  length <steps>          Set pattern length
   clear                   Clear all steps to rests
   reset                   Reset to default pattern
-  tempo <bpm>             Change tempo (e.g., 'tempo 120')
-  show                    Display current pattern (CC automation shown in brackets)
-  verbose [on|off]        Toggle or set verbose step output
-  save <name>             Save current pattern (e.g., 'save bass_line')
-  load <name>             Load a saved pattern (e.g., 'load bass_line')
+  tempo <bpm>             Change tempo
+
+CC AUTOMATION:
+  cc <cc-num> <val>       Set global CC value (transient)
+  cc-step <step> <cc> <val>  Set per-step CC automation
+  cc-clear <step> [cc]    Clear CC automation from a step
+  cc-apply <cc-num>       Apply global CC to all steps with notes
+  cc-show                 Display all CC automation
+
+PATTERN STORAGE:
+  show                    Display current pattern
+  save <name>             Save current pattern
+  load <name>             Load a saved pattern
   list                    List all saved patterns
-  delete <name>           Delete a saved pattern (e.g., 'delete bass_line')
-  ai [prompt]             Execute AI prompt inline or enter interactive session (AI: %s)
-                          Usage: 'ai' to enter session, 'ai <prompt>' for inline execution
-                          All commands work directly in AI mode.
-                          Natural language is sent to AI for pattern changes.
-                          Type 'exit' to return to command mode.
+  delete <name>           Delete a saved pattern
+
+AI FEATURES (AI: %s):
+  ai [prompt]             Enter AI session or execute inline prompt
   clear-chat              Clear AI conversation history
+  models                  List available AI models
+  model <id>              Switch AI model (haiku/sonnet/opus)
+
+MODEL COMPARISON:
+  compare <prompt>        Run prompt against all models, save results
+  compare-list            List saved comparisons
+  compare-view <id>       View comparison details
+  compare-load <id> <model>  Load pattern from comparison
+  compare-delete <id>     Delete a comparison
+  compare-rate <id> <model> <criteria> <score>
+                          Rate a model (criteria: rhythmic/dynamics/genre/overall/all)
+  blind <id>              Enter blind evaluation mode
+
+OTHER:
+  verbose [on|off]        Toggle verbose step output
   help                    Show this help message
   quit                    Exit the program
-  <enter>                 Show current pattern (same as 'show')
 
-Notes: C4, D#5, Bb3, etc. | Steps: 1-%d | Duration: 1-%d steps (default 1)
-Default velocity: 100 | Default gate: 90%% | CC numbers/values: 0-127
-Patterns saved in 'patterns/' directory as JSON files.
-AI features require ANTHROPIC_API_KEY environment variable.`, aiStatus, patternLen, patternLen)
+Notes: Steps 1-%d | Velocity 0-127 | Gate 1-100%% | CC 0-127
+Patterns in 'patterns/', comparisons in 'comparisons/'`, aiStatus, patternLen)
 
 	fmt.Println(helpText)
 	return nil
