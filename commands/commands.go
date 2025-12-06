@@ -27,6 +27,7 @@ type Handler struct {
 	pattern           *sequence.Pattern
 	verboseController VerboseController
 	aiClient          *ai.Client
+	currentModel      string // Current model ID (e.g., "haiku", "sonnet", "opus")
 }
 
 // New creates a new command handler with the default AI model
@@ -41,10 +42,19 @@ func NewWithModel(pattern *sequence.Pattern, verboseController VerboseController
 	var aiClient *ai.Client
 	var err error
 
-	if model == "" {
-		aiClient, err = ai.NewFromEnv()
-	} else {
+	// Determine current model ID
+	currentModelID := "haiku" // default
+	if model != "" {
+		// Find the model ID from the API model string
+		for _, m := range comparison.AvailableModels {
+			if string(m.APIModel) == string(model) {
+				currentModelID = m.ID
+				break
+			}
+		}
 		aiClient, err = ai.NewFromEnvWithModel(model)
+	} else {
+		aiClient, err = ai.NewFromEnv()
 	}
 
 	// Ignore error - AI is optional
@@ -54,6 +64,7 @@ func NewWithModel(pattern *sequence.Pattern, verboseController VerboseController
 		pattern:           pattern,
 		verboseController: verboseController,
 		aiClient:          aiClient,
+		currentModel:      currentModelID,
 	}
 }
 
@@ -121,6 +132,18 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleClearChat(parts)
 	case "compare":
 		return h.handleCompare(parts)
+	case "compare-list":
+		return h.handleCompareList(parts)
+	case "compare-view":
+		return h.handleCompareView(parts)
+	case "compare-load":
+		return h.handleCompareLoad(parts)
+	case "compare-delete":
+		return h.handleCompareDelete(parts)
+	case "models":
+		return h.handleModels(parts)
+	case "model":
+		return h.handleModel(parts)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -998,5 +1021,234 @@ func (h *Handler) handleCompare(parts []string) error {
 	fmt.Printf("\nSaved to: %s/%s.json\n", comparison.ComparisonsDir, comp.ID)
 	fmt.Println("Use 'compare-view <id>' to see full details")
 
+	return nil
+}
+
+// handleCompareList: compare-list - List all saved comparisons
+func (h *Handler) handleCompareList(parts []string) error {
+	if len(parts) != 1 {
+		return fmt.Errorf("usage: compare-list")
+	}
+
+	ids, err := comparison.ListComparisons()
+	if err != nil {
+		return fmt.Errorf("failed to list comparisons: %w", err)
+	}
+
+	if len(ids) == 0 {
+		fmt.Println("No saved comparisons found")
+		fmt.Println("Use 'compare <prompt>' to run a comparison test")
+		return nil
+	}
+
+	fmt.Printf("Saved comparisons (%d):\n", len(ids))
+	for _, id := range ids {
+		// Load each comparison to show summary
+		comp, err := comparison.LoadComparison(id)
+		if err != nil {
+			fmt.Printf("  %s (error loading)\n", id)
+			continue
+		}
+
+		// Truncate prompt for display
+		promptPreview := comp.Prompt
+		if len(promptPreview) > 40 {
+			promptPreview = promptPreview[:37] + "..."
+		}
+
+		successCount := len(comp.SuccessfulResults())
+		fmt.Printf("  %s [%s] %d/%d models - %q\n", id, comp.Status, successCount, len(comp.Results), promptPreview)
+	}
+
+	return nil
+}
+
+// handleCompareView: compare-view <id> - View comparison details
+func (h *Handler) handleCompareView(parts []string) error {
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: compare-view <id> (e.g., 'compare-view 20241206-143022')")
+	}
+
+	id := parts[1]
+	comp, err := comparison.LoadComparison(id)
+	if err != nil {
+		return err
+	}
+
+	// Header
+	fmt.Printf("Comparison: %s\n", comp.ID)
+	fmt.Printf("Created: %s\n", comp.CreatedAt.Format("2006-01-02 15:04:05"))
+	fmt.Printf("Status: %s\n", comp.Status)
+	fmt.Printf("Prompt: %q\n\n", comp.Prompt)
+
+	// Results
+	fmt.Println("Results:")
+	for _, result := range comp.Results {
+		statusSymbol := "✓"
+		if result.Status != comparison.ResultSuccess {
+			statusSymbol = "✗"
+		}
+
+		fmt.Printf("\n  %s %s (%s, %dms)\n", statusSymbol, result.ModelDisplayName, result.Status, result.DurationMs)
+
+		if result.Error != "" {
+			fmt.Printf("    Error: %s\n", result.Error)
+		}
+
+		if result.Status == comparison.ResultSuccess {
+			fmt.Printf("    Commands (%d):\n", len(result.Commands))
+			for _, cmd := range result.Commands {
+				fmt.Printf("      %s\n", cmd)
+			}
+
+			if result.Pattern != nil {
+				fmt.Printf("    Pattern: %d steps, %d notes\n", result.Pattern.Length, len(result.Pattern.Steps))
+			}
+		}
+
+		if result.RawResponse != "" {
+			fmt.Printf("    Raw response (truncated):\n      %s\n", truncateString(result.RawResponse, 200))
+		}
+
+		// Show rating if exists
+		if comp.HasRating(result.Model) {
+			rating := comp.Ratings[result.Model]
+			fmt.Printf("    Rating: rhythmic=%d, dynamics=%d, genre=%d, overall=%d\n",
+				rating.RhythmicInterest, rating.VelocityDynamics, rating.GenreAccuracy, rating.Overall)
+		}
+	}
+
+	fmt.Printf("\nUse 'compare-load %s <model>' to load a pattern (models: %s)\n", id, strings.Join(comparison.GetModelIDs(), ", "))
+
+	return nil
+}
+
+// handleCompareLoad: compare-load <id> <model> - Load a model's pattern from comparison
+func (h *Handler) handleCompareLoad(parts []string) error {
+	if len(parts) != 3 {
+		return fmt.Errorf("usage: compare-load <id> <model> (e.g., 'compare-load 20241206-143022 haiku')")
+	}
+
+	id := parts[1]
+	modelID := strings.ToLower(parts[2])
+
+	// Load comparison
+	comp, err := comparison.LoadComparison(id)
+	if err != nil {
+		return err
+	}
+
+	// Find model config to get API model ID
+	modelConfig, found := comparison.GetModelByID(modelID)
+	if !found {
+		return fmt.Errorf("unknown model: %s (available: %s)", modelID, strings.Join(comparison.GetModelIDs(), ", "))
+	}
+
+	// Find result for this model
+	result := comp.GetResultByModelID(string(modelConfig.APIModel))
+	if result == nil {
+		return fmt.Errorf("model '%s' not found in comparison %s", modelID, id)
+	}
+
+	if result.Status != comparison.ResultSuccess {
+		return fmt.Errorf("model '%s' failed in this comparison (status: %s)", modelID, result.Status)
+	}
+
+	if result.Pattern == nil {
+		return fmt.Errorf("no pattern data for model '%s' in comparison %s", modelID, id)
+	}
+
+	// Convert PatternFile to Pattern and copy to current pattern
+	loadedPattern, err := sequence.FromPatternFile(result.Pattern)
+	if err != nil {
+		return fmt.Errorf("failed to load pattern: %w", err)
+	}
+
+	h.pattern.CopyFrom(loadedPattern)
+
+	fmt.Printf("Loaded %s's pattern from comparison %s\n", modelConfig.DisplayName, id)
+	fmt.Printf("Pattern: %d steps, tempo %d BPM\n", loadedPattern.Length(), loadedPattern.BPM)
+
+	return nil
+}
+
+// handleCompareDelete: compare-delete <id> - Delete a saved comparison
+func (h *Handler) handleCompareDelete(parts []string) error {
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: compare-delete <id> (e.g., 'compare-delete 20241206-143022')")
+	}
+
+	id := parts[1]
+
+	// Verify it exists first
+	_, err := comparison.LoadComparison(id)
+	if err != nil {
+		return err
+	}
+
+	if err := comparison.DeleteComparison(id); err != nil {
+		return err
+	}
+
+	fmt.Printf("Deleted comparison %s\n", id)
+	return nil
+}
+
+// truncateString truncates a string to maxLen characters
+func truncateString(s string, maxLen int) string {
+	if len(s) <= maxLen {
+		return s
+	}
+	return s[:maxLen-3] + "..."
+}
+
+// handleModels: models - List available AI models
+func (h *Handler) handleModels(parts []string) error {
+	if len(parts) != 1 {
+		return fmt.Errorf("usage: models")
+	}
+
+	fmt.Println("Available AI models:")
+	for _, m := range comparison.AvailableModels {
+		activeMarker := ""
+		if m.ID == h.currentModel {
+			activeMarker = " [active]"
+		}
+		fmt.Printf("  %s - %s (%s)%s\n", m.ID, m.DisplayName, m.Provider, activeMarker)
+	}
+
+	fmt.Println("\nUse 'model <id>' to switch models")
+	return nil
+}
+
+// handleModel: model <id> - Switch AI model
+func (h *Handler) handleModel(parts []string) error {
+	if h.aiClient == nil {
+		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
+	}
+
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: model <id> (e.g., 'model sonnet')\nAvailable: %s", strings.Join(comparison.GetModelIDs(), ", "))
+	}
+
+	modelID := strings.ToLower(parts[1])
+
+	// Validate model ID
+	modelConfig, found := comparison.GetModelByID(modelID)
+	if !found {
+		return fmt.Errorf("unknown model: %s (available: %s)", modelID, strings.Join(comparison.GetModelIDs(), ", "))
+	}
+
+	// Check if already using this model
+	if modelID == h.currentModel {
+		fmt.Printf("Already using %s\n", modelConfig.DisplayName)
+		return nil
+	}
+
+	// Switch model
+	h.aiClient.SetModel(modelConfig.APIModel)
+	h.currentModel = modelID
+
+	fmt.Printf("Switched to %s\n", modelConfig.DisplayName)
 	return nil
 }
