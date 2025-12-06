@@ -9,8 +9,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/chzyer/readline"
 	"github.com/iltempo/interplay/ai"
+	"github.com/iltempo/interplay/comparison"
 	"github.com/iltempo/interplay/sequence"
 )
 
@@ -27,10 +29,26 @@ type Handler struct {
 	aiClient          *ai.Client
 }
 
-// New creates a new command handler
+// New creates a new command handler with the default AI model
 func New(pattern *sequence.Pattern, verboseController VerboseController) *Handler {
+	return NewWithModel(pattern, verboseController, "")
+}
+
+// NewWithModel creates a new command handler with a specific AI model
+// If model is empty, uses the default model (Haiku)
+func NewWithModel(pattern *sequence.Pattern, verboseController VerboseController, model anthropic.Model) *Handler {
 	// Try to initialize AI client (optional)
-	aiClient, _ := ai.NewFromEnv()
+	var aiClient *ai.Client
+	var err error
+
+	if model == "" {
+		aiClient, err = ai.NewFromEnv()
+	} else {
+		aiClient, err = ai.NewFromEnvWithModel(model)
+	}
+
+	// Ignore error - AI is optional
+	_ = err
 
 	return &Handler{
 		pattern:           pattern,
@@ -101,6 +119,8 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleAI(parts)
 	case "clear-chat":
 		return h.handleClearChat(parts)
+	case "compare":
+		return h.handleCompare(parts)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -902,4 +922,81 @@ func (h *Handler) ReadLoop(reader io.Reader) error {
 			fmt.Printf("Error: %v\n", err)
 		}
 	}
+}
+
+// handleCompare: compare <prompt> - Run comparison test against all models
+func (h *Handler) handleCompare(parts []string) error {
+	// Check if AI client is available
+	if h.aiClient == nil {
+		return fmt.Errorf("AI not available. Set ANTHROPIC_API_KEY environment variable to enable AI features")
+	}
+
+	if len(parts) < 2 {
+		return fmt.Errorf("usage: compare <prompt> (e.g., 'compare create a funky bass line')")
+	}
+
+	// Join remaining parts as the prompt
+	prompt := strings.Join(parts[1:], " ")
+
+	// Validate prompt is not empty
+	if strings.TrimSpace(prompt) == "" {
+		return fmt.Errorf("prompt cannot be empty")
+	}
+
+	fmt.Printf("Running comparison test with prompt: %q\n", prompt)
+	fmt.Printf("Testing %d models: %s\n\n", len(comparison.AvailableModels), strings.Join(comparison.GetModelIDs(), ", "))
+
+	ctx := context.Background()
+
+	// Progress callback
+	progress := func(modelName string, status string) {
+		switch status {
+		case "running":
+			fmt.Printf("  %s: generating...\n", modelName)
+		case "success":
+			fmt.Printf("  %s: done\n", modelName)
+		case "error":
+			fmt.Printf("  %s: error\n", modelName)
+		case "parse_error":
+			fmt.Printf("  %s: parse error\n", modelName)
+		}
+	}
+
+	// Run comparison
+	comp, err := comparison.RunComparison(ctx, prompt, h.aiClient, progress)
+	if err != nil {
+		return fmt.Errorf("comparison failed: %w", err)
+	}
+
+	// Save results
+	if err := comparison.SaveComparison(comp); err != nil {
+		return fmt.Errorf("failed to save comparison: %w", err)
+	}
+
+	// Print summary
+	fmt.Println()
+	fmt.Printf("Comparison complete (ID: %s)\n", comp.ID)
+	fmt.Printf("Status: %s\n", comp.Status)
+	fmt.Println()
+
+	// Print results summary
+	fmt.Println("Results:")
+	for _, result := range comp.Results {
+		statusSymbol := "✓"
+		if result.Status != comparison.ResultSuccess {
+			statusSymbol = "✗"
+		}
+		fmt.Printf("  %s %s: %s (%dms)\n", statusSymbol, result.ModelDisplayName, result.Status, result.DurationMs)
+		if result.Status == comparison.ResultSuccess && result.Pattern != nil {
+			fmt.Printf("      Commands: %d, Steps with notes: %d\n", len(result.Commands), len(result.Pattern.Steps))
+		}
+		if result.Error != "" {
+			fmt.Printf("      Error: %s\n", result.Error)
+		}
+	}
+
+	fmt.Printf("\nSaved to: %s/%s.json\n", comparison.ComparisonsDir, comp.ID)
+	fmt.Println("Use 'compare-view <id>' to see full details")
+
+	return nil
 }
