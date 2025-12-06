@@ -144,6 +144,10 @@ func (h *Handler) ProcessCommand(cmdLine string) error {
 		return h.handleModels(parts)
 	case "model":
 		return h.handleModel(parts)
+	case "blind":
+		return h.handleBlind(parts)
+	case "compare-rate":
+		return h.handleCompareRate(parts)
 	case "help":
 		return h.handleHelp(parts)
 	default:
@@ -1250,5 +1254,313 @@ func (h *Handler) handleModel(parts []string) error {
 	h.currentModel = modelID
 
 	fmt.Printf("Switched to %s\n", modelConfig.DisplayName)
+	return nil
+}
+
+// handleBlind: blind <id> - Enter blind evaluation mode for a comparison
+func (h *Handler) handleBlind(parts []string) error {
+	if len(parts) != 2 {
+		return fmt.Errorf("usage: blind <id> (e.g., 'blind 20241206-143022')")
+	}
+
+	id := parts[1]
+
+	// Load comparison
+	comp, err := comparison.LoadComparison(id)
+	if err != nil {
+		return err
+	}
+
+	// Get successful results only
+	successfulResults := comp.SuccessfulResults()
+	if len(successfulResults) == 0 {
+		return fmt.Errorf("no successful results in comparison %s", id)
+	}
+
+	if len(successfulResults) == 1 {
+		fmt.Println("Warning: Only one model succeeded in this comparison. Blind evaluation is less meaningful.")
+	}
+
+	// Collect model IDs from successful results
+	modelIDs := make([]string, len(successfulResults))
+	for i, r := range successfulResults {
+		modelIDs[i] = r.Model
+	}
+
+	// Create blind session with randomized labels
+	session := comparison.NewBlindSession(id, modelIDs)
+
+	fmt.Printf("Entering blind evaluation mode for comparison %s\n", id)
+	fmt.Printf("Prompt: %q\n\n", comp.Prompt)
+	fmt.Printf("Patterns to evaluate (%d):\n", len(session.Labels))
+	for _, label := range session.Labels {
+		fmt.Printf("  Pattern %s\n", label)
+	}
+	fmt.Println()
+	fmt.Println("Commands in blind mode:")
+	fmt.Println("  load <label>     - Load pattern into active playback (e.g., 'load A')")
+	fmt.Println("  rate <label> <1-5> - Rate a pattern (e.g., 'rate A 4')")
+	fmt.Println("  status           - Show rating progress")
+	fmt.Println("  reveal           - Reveal which model made which pattern (after all rated)")
+	fmt.Println("  exit             - Exit blind mode without saving")
+	fmt.Println()
+
+	// Enter blind mode loop
+	return h.blindModeLoop(session, comp)
+}
+
+// blindModeLoop runs the interactive blind evaluation mode
+func (h *Handler) blindModeLoop(session *comparison.BlindSession, comp *comparison.Comparison) error {
+	rl, err := readline.New("blind> ")
+	if err != nil {
+		return fmt.Errorf("failed to initialize readline: %w", err)
+	}
+	defer rl.Close()
+
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			fmt.Println("\nExiting blind mode.")
+			return nil
+		}
+
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		cmd := strings.ToLower(parts[0])
+
+		switch cmd {
+		case "exit":
+			fmt.Println("Exiting blind mode (ratings not saved)")
+			return nil
+
+		case "load":
+			if len(parts) != 2 {
+				fmt.Println("Usage: load <label> (e.g., 'load A')")
+				continue
+			}
+			label := strings.ToUpper(parts[1])
+			if err := h.blindLoadPattern(session, comp, label); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+
+		case "rate":
+			if len(parts) != 3 {
+				fmt.Println("Usage: rate <label> <1-5> (e.g., 'rate A 4')")
+				continue
+			}
+			label := strings.ToUpper(parts[1])
+			score, err := strconv.Atoi(parts[2])
+			if err != nil || score < 1 || score > 5 {
+				fmt.Println("Score must be 1-5")
+				continue
+			}
+			if err := h.blindRatePattern(session, label, score); err != nil {
+				fmt.Printf("Error: %v\n", err)
+			}
+
+		case "status":
+			h.blindShowStatus(session)
+
+		case "reveal":
+			if !session.IsComplete() {
+				fmt.Printf("Cannot reveal yet - %d/%d patterns rated\n", session.RatedCount(), session.TotalCount())
+				fmt.Println("Rate all patterns first, then reveal")
+				continue
+			}
+			h.blindReveal(session, comp)
+			return nil
+
+		case "show":
+			fmt.Println(h.pattern.String())
+
+		default:
+			fmt.Printf("Unknown blind mode command: %s\n", cmd)
+			fmt.Println("Commands: load, rate, status, reveal, show, exit")
+		}
+	}
+}
+
+// blindLoadPattern loads a pattern by label into the active pattern
+func (h *Handler) blindLoadPattern(session *comparison.BlindSession, comp *comparison.Comparison, label string) error {
+	modelID, exists := session.GetModelIDByLabel(label)
+	if !exists {
+		return fmt.Errorf("unknown label: %s (available: %s)", label, strings.Join(session.Labels, ", "))
+	}
+
+	result := comp.GetResultByModelID(modelID)
+	if result == nil || result.Pattern == nil {
+		return fmt.Errorf("no pattern data for label %s", label)
+	}
+
+	loadedPattern, err := sequence.FromPatternFile(result.Pattern)
+	if err != nil {
+		return fmt.Errorf("failed to load pattern: %w", err)
+	}
+
+	h.pattern.CopyFrom(loadedPattern)
+
+	ratingStatus := ""
+	if session.IsRated(label) {
+		ratingStatus = fmt.Sprintf(" (rated: %d)", session.GetRating(label))
+	}
+	fmt.Printf("Loaded Pattern %s%s\n", label, ratingStatus)
+
+	return nil
+}
+
+// blindRatePattern rates a pattern by label
+func (h *Handler) blindRatePattern(session *comparison.BlindSession, label string, score int) error {
+	if !session.RateLabel(label, score) {
+		return fmt.Errorf("unknown label: %s (available: %s)", label, strings.Join(session.Labels, ", "))
+	}
+
+	fmt.Printf("Rated Pattern %s: %d/5\n", label, score)
+	fmt.Printf("Progress: %d/%d patterns rated\n", session.RatedCount(), session.TotalCount())
+
+	if session.IsComplete() {
+		fmt.Println("\nAll patterns rated! Use 'reveal' to see which model made each pattern.")
+	}
+
+	return nil
+}
+
+// blindShowStatus shows the current rating status
+func (h *Handler) blindShowStatus(session *comparison.BlindSession) {
+	fmt.Printf("Rating progress: %d/%d\n", session.RatedCount(), session.TotalCount())
+	for _, label := range session.Labels {
+		if session.IsRated(label) {
+			fmt.Printf("  Pattern %s: %d/5\n", label, session.GetRating(label))
+		} else {
+			fmt.Printf("  Pattern %s: not rated\n", label)
+		}
+	}
+}
+
+// blindReveal shows the label-to-model mapping and saves ratings
+func (h *Handler) blindReveal(session *comparison.BlindSession, comp *comparison.Comparison) {
+	fmt.Println("\n=== REVEAL ===")
+
+	results := session.GetRevealResults(comp)
+
+	// Sort by rating (highest first)
+	for i := 0; i < len(results)-1; i++ {
+		for j := i + 1; j < len(results); j++ {
+			if results[j].Rating > results[i].Rating {
+				results[i], results[j] = results[j], results[i]
+			}
+		}
+	}
+
+	fmt.Println("Results (sorted by rating):")
+	for _, r := range results {
+		fmt.Printf("  Pattern %s = %s (rating: %d/5)\n", r.Label, r.DisplayName, r.Rating)
+	}
+
+	// Save ratings to comparison
+	if comp.Ratings == nil {
+		comp.Ratings = make(map[string]*comparison.Rating)
+	}
+
+	for _, label := range session.Labels {
+		modelID, _ := session.GetModelIDByLabel(label)
+		score := session.GetRating(label)
+
+		// Create rating with overall score from blind evaluation
+		comp.Ratings[modelID] = &comparison.Rating{
+			Overall: score,
+		}
+	}
+
+	// Save updated comparison
+	if err := comparison.SaveComparison(comp); err != nil {
+		fmt.Printf("\nWarning: Failed to save ratings: %v\n", err)
+	} else {
+		fmt.Printf("\nRatings saved to comparison %s\n", comp.ID)
+	}
+
+	fmt.Println("\nExiting blind mode.")
+}
+
+// handleCompareRate: compare-rate <id> <model> <criteria> <score> - Rate a model's output
+func (h *Handler) handleCompareRate(parts []string) error {
+	if len(parts) != 5 {
+		return fmt.Errorf("usage: compare-rate <id> <model> <criteria> <score>\n" +
+			"  criteria: rhythmic, dynamics, genre, overall, all\n" +
+			"  score: 1-5\n" +
+			"  e.g., 'compare-rate 20241206-143022 haiku overall 4'")
+	}
+
+	id := parts[1]
+	modelID := strings.ToLower(parts[2])
+	criteria := strings.ToLower(parts[3])
+	scoreStr := parts[4]
+
+	// Parse score
+	score, err := strconv.Atoi(scoreStr)
+	if err != nil || !comparison.IsValidScore(score) {
+		return fmt.Errorf("score must be 1-5, got: %s", scoreStr)
+	}
+
+	// Validate criteria
+	if !comparison.IsValidCriteria(criteria) {
+		return fmt.Errorf("invalid criteria: %s (valid: %s)", criteria, strings.Join(comparison.ValidRatingCriteria, ", "))
+	}
+
+	// Load comparison
+	comp, err := comparison.LoadComparison(id)
+	if err != nil {
+		return err
+	}
+
+	// Find model config
+	modelConfig, found := comparison.GetModelByID(modelID)
+	if !found {
+		return fmt.Errorf("unknown model: %s (available: %s)", modelID, strings.Join(comparison.GetModelIDs(), ", "))
+	}
+
+	// Check if model is in comparison
+	result := comp.GetResultByModelID(string(modelConfig.APIModel))
+	if result == nil {
+		return fmt.Errorf("model '%s' not found in comparison %s", modelID, id)
+	}
+
+	// Initialize ratings map if needed
+	if comp.Ratings == nil {
+		comp.Ratings = make(map[string]*comparison.Rating)
+	}
+
+	// Get or create rating for this model
+	rating := comp.Ratings[result.Model]
+	if rating == nil {
+		rating = comparison.NewRating()
+		comp.Ratings[result.Model] = rating
+	}
+
+	// Set the criteria
+	if !rating.SetCriteria(criteria, score) {
+		return fmt.Errorf("failed to set criteria: %s", criteria)
+	}
+
+	// Save comparison
+	if err := comparison.SaveComparison(comp); err != nil {
+		return fmt.Errorf("failed to save rating: %w", err)
+	}
+
+	if criteria == "all" {
+		fmt.Printf("Rated %s in comparison %s: all criteria = %d\n", modelConfig.DisplayName, id, score)
+	} else {
+		fmt.Printf("Rated %s in comparison %s: %s = %d\n", modelConfig.DisplayName, id, criteria, score)
+	}
+
+	// Show full rating if complete
+	if rating.IsComplete() {
+		fmt.Printf("  Full rating: rhythmic=%d, dynamics=%d, genre=%d, overall=%d\n",
+			rating.RhythmicInterest, rating.VelocityDynamics, rating.GenreAccuracy, rating.Overall)
+	}
+
 	return nil
 }
